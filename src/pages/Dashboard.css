@@ -1,0 +1,124 @@
+.dashboard-page {
+  min-height: calc(100vh - 80px);
+  padding: 2rem;
+}
+
+.dashboard-container {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.dashboard-container h1 {
+  color: var(--brun);
+  margin-bottom: 2rem;
+}
+
+.dashboard-section {
+  margin-bottom: 3rem;
+}
+
+.dashboard-section h2 {
+  color: var(--brun);
+  margin-bottom: 1.5rem;
+}
+
+.dashboard-loading {
+  text-align: center;
+  padding: 3rem;
+  color: var(--noir);
+}
+
+.products-admin {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.product-admin-card {
+  background-color: var(--blanc-casse);
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.product-admin-card h3 {
+  color: var(--brun);
+  margin-bottom: 0.5rem;
+}
+
+.toggle-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  cursor: pointer;
+}
+
+.toggle-switch input {
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.pickup-time-group {
+  margin-bottom: 2rem;
+}
+
+.pickup-time-group h3 {
+  color: var(--brun);
+  margin-bottom: 1rem;
+  font-size: 1.3rem;
+}
+
+.order-admin-card {
+  background-color: var(--blanc-casse);
+  padding: 1.5rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.order-admin-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+.status-select {
+  padding: 0.5rem;
+  border: 1px solid var(--brun);
+  border-radius: 4px;
+  background-color: var(--beige);
+  color: var(--noir);
+  cursor: pointer;
+}
+
+.order-admin-items {
+  margin: 1rem 0;
+  padding: 1rem;
+  background-color: var(--beige);
+  border-radius: 4px;
+}
+
+.order-admin-item {
+  margin-bottom: 0.5rem;
+  color: var(--noir);
+}
+
+.order-admin-date {
+  font-size: 0.9rem;
+  color: #666;
+  margin-top: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .order-admin-header {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .products-admin {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,120 @@
+.profile-page {
+  min-height: calc(100vh - 80px);
+  padding: 2rem;
+}
+
+.profile-container {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+.profile-container h1 {
+  color: var(--brun);
+  margin-bottom: 2rem;
+}
+
+.profile-info {
+  margin-bottom: 3rem;
+}
+
+.info-card {
+  background-color: var(--blanc-casse);
+  padding: 2rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.info-card h2 {
+  color: var(--brun);
+  margin-bottom: 1rem;
+}
+
+.info-card p {
+  margin-bottom: 0.75rem;
+  color: var(--noir);
+}
+
+.status-local {
+  color: #28a745;
+  font-weight: bold;
+}
+
+.status-not-local {
+  color: #666;
+}
+
+.discount {
+  color: var(--brun);
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+
+.orders-section h2 {
+  color: var(--brun);
+  margin-bottom: 1.5rem;
+}
+
+.orders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.order-card {
+  background-color: var(--blanc-casse);
+  padding: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.order-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.status {
+  padding: 0.25rem 0.75rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.status-pending {
+  background-color: #ffc107;
+  color: var(--noir);
+}
+
+.status-preparing {
+  background-color: #17a2b8;
+  color: white;
+}
+
+.status-ready {
+  background-color: #28a745;
+  color: white;
+}
+
+.status-completed {
+  background-color: #6c757d;
+  color: white;
+}
+
+.order-items {
+  margin: 1rem 0;
+  padding: 1rem;
+  background-color: var(--beige);
+  border-radius: 4px;
+}
+
+.order-item {
+  margin-bottom: 0.5rem;
+  color: var(--noir);
+}
+
+.order-date {
+  font-size: 0.9rem;
+  color: #666;
+  margin-top: 0.5rem;
+}
