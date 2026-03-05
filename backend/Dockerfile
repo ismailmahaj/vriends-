@@ -14,5 +14,5 @@ COPY . .
 # Exposer le port
 EXPOSE 3001
 
-# Démarrer l'application
-CMD ["npm", "start"]
+# Démarrer l'application directement avec node
+CMD ["node", "server.js"]

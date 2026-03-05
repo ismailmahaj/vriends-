@@ -1,0 +1,32 @@
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# Copier les fichiers package
+COPY package*.json ./
+
+# Installer les dépendances (utiliser npm install si package-lock.json n'est pas synchronisé)
+RUN npm install
+
+# Copier le reste du code
+COPY . .
+
+# Build l'application
+RUN npm run build
+
+# Stage de production
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Installer serve globalement
+RUN npm install -g serve
+
+# Copier les fichiers buildés depuis le stage builder
+COPY --from=builder /app/dist ./dist
+
+# Exposer le port
+EXPOSE 3000
+
+# Démarrer serve
+CMD ["serve", "-s", "dist", "-l", "3000"]
