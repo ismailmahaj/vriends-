@@ -11,6 +11,12 @@ RUN npm install
 # Copier le reste du code
 COPY . .
 
+# Build l'application avec les variables d'environnement
+# Railway injecte les variables d'environnement au runtime, mais Vite les a besoin au build
+# On utilise ARG pour passer la variable au build
+ARG VITE_API_URL
+ENV VITE_API_URL=$VITE_API_URL
+
 # Build l'application
 RUN npm run build
 

@@ -1,11 +1,23 @@
 import axios from 'axios';
 
-// Debug: Afficher l'URL utilisée
-console.log('🔍 VITE_API_URL:', import.meta.env.VITE_API_URL);
-console.log('🔍 Base URL:', import.meta.env.VITE_API_URL || 'http://localhost:3001/api');
+// Déterminer l'URL de l'API
+// En production Railway, utiliser l'URL du backend
+// En développement local, utiliser localhost
+const getApiUrl = () => {
+  // Si on est en production (pas localhost), utiliser l'URL Railway du backend
+  if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    // URL du backend en production Railway
+    return 'https://vriends-backend-production.up.railway.app/api';
+  }
+  // Sinon, utiliser la variable d'environnement ou localhost par défaut
+  return import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+};
+
+const apiUrl = getApiUrl();
+console.log('🔍 API URL utilisée:', apiUrl);
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:3001/api'
+  baseURL: apiUrl
 });
 
 api.interceptors.request.use((config) => {
