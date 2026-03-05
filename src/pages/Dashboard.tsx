@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
-import { dashboardService, Order } from '../services/dashboard.service';
-import { productService, Product } from '../services/product.service';
+import { dashboardService } from '../services/dashboard.service';
+import type { Order } from '../services/dashboard.service';
+import { productService } from '../services/product.service';
+import type { Product } from '../services/product.service';
 import './Dashboard.css';
 
 export default function Dashboard() {

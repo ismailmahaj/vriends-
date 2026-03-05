@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { orderService } from '../services/order.service';
-import { authService, User } from '../services/auth.service';
+import { authService } from '../services/auth.service';
+import type { User } from '../services/auth.service';
 import './Cart.css';
 
 export default function Cart() {

@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
-import { authService, User } from '../services/auth.service';
-import { orderService, Order } from '../services/order.service';
+import type { User } from '../services/auth.service';
+import { orderService } from '../services/order.service';
+import type { Order } from '../services/order.service';
 import './Profile.css';
 
 interface ProfileProps {
   user: User | null;
-  setUser: (user: any) => void;
 }
 
-export default function Profile({ user, setUser }: ProfileProps) {
+export default function Profile({ user }: ProfileProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 

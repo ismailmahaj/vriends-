@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { productService, Product } from '../services/product.service';
+import { productService } from '../services/product.service';
+import type { Product } from '../services/product.service';
 import { authService } from '../services/auth.service';
 import './Menu.css';
 
