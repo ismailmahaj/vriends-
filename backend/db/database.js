@@ -81,6 +81,19 @@ const seedData = async () => {
       console.log('ℹ️  Admin existe déjà');
     }
 
+    // Créer le compte admin Ismael
+    const ismaelExists = db.prepare('SELECT id FROM users WHERE email = ?').get('ismaelbentaleb@hotmail.com');
+    if (!ismaelExists) {
+      const hashedPasswordIsmael = await bcrypt.hash('Admin1234', 10);
+      db.prepare(`
+        INSERT INTO users (name, email, password, role, local_status, discount_percent)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run('Ismael Bentaleb', 'ismaelbentaleb@hotmail.com', hashedPasswordIsmael, 'admin', 1, 10);
+      console.log('✅ Admin Ismael créé : ismaelbentaleb@hotmail.com / Admin1234');
+    } else {
+      console.log('ℹ️  Admin Ismael existe déjà');
+    }
+
     // Vérifier si produits existent
     const productsCount = db.prepare('SELECT COUNT(*) as count FROM products').get();
     if (productsCount.count === 0) {
