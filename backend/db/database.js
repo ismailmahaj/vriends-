@@ -134,33 +134,39 @@ const seedData = async () => {
       console.log('✅ Setting qr_code_url initialisé');
     }
     
-    // Toujours s'assurer que l'image QR code pointe vers /qr-redirect (même si elle existe déjà)
-    const frontendUrl = process.env.FRONTEND_URL || 'https://vriends-frontend-production.up.railway.app';
-    const qrRedirectUrl = `${frontendUrl}/qr-redirect`;
-    const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrRedirectUrl)}&bgcolor=F7F5F2&color=3A2E25&margin=12`;
-    
+    // Générer l'image QR code qui pointe directement vers l'URL de destination
     const imageExists = db.prepare('SELECT id FROM settings WHERE key = ?').get('qr_code_image_url');
-    if (imageExists) {
-      // Vérifier si l'image pointe bien vers /qr-redirect
-      const currentImage = db.prepare('SELECT value FROM settings WHERE key = ?').get('qr_code_image_url');
-      if (!currentImage.value.includes('/qr-redirect')) {
-        // Mettre à jour l'image pour pointer vers /qr-redirect
-        db.prepare(`
-          UPDATE settings 
-          SET value = ?, updated_at = datetime('now')
-          WHERE key = 'qr_code_image_url'
-        `).run(qrImageUrl);
-        console.log('✅ Image QR code mise à jour pour pointer vers /qr-redirect');
-      } else {
-        console.log('✅ Image QR code pointe déjà vers /qr-redirect');
-      }
-    } else {
-      // Créer l'image QR code
+    if (!imageExists) {
+      // Récupérer l'URL de destination (ou utiliser l'URL par défaut)
+      const qrUrlSetting = db.prepare('SELECT value FROM settings WHERE key = ?').get('qr_code_url');
+      const destinationUrl = qrUrlSetting ? qrUrlSetting.value : 'https://vriends-frontend-production.up.railway.app/contact?qr=true';
+      
+      const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(destinationUrl)}&bgcolor=F7F5F2&color=3A2E25&margin=12`;
+      
       db.prepare(`
         INSERT INTO settings (key, value)
         VALUES (?, ?)
       `).run('qr_code_image_url', qrImageUrl);
-      console.log('✅ Setting qr_code_image_url initialisé (URL fixe de redirection)');
+      console.log(`✅ Setting qr_code_image_url initialisé (pointe vers: ${destinationUrl})`);
+    } else {
+      // Vérifier que l'image QR code pointe vers la bonne URL
+      const qrUrlSetting = db.prepare('SELECT value FROM settings WHERE key = ?').get('qr_code_url');
+      if (qrUrlSetting) {
+        const destinationUrl = qrUrlSetting.value;
+        const currentImage = db.prepare('SELECT value FROM settings WHERE key = ?').get('qr_code_image_url');
+        
+        // Vérifier si l'image pointe vers la bonne URL
+        if (!currentImage.value.includes(encodeURIComponent(destinationUrl))) {
+          // Mettre à jour l'image pour pointer vers la bonne URL
+          const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(destinationUrl)}&bgcolor=F7F5F2&color=3A2E25&margin=12`;
+          db.prepare(`
+            UPDATE settings 
+            SET value = ?, updated_at = datetime('now')
+            WHERE key = 'qr_code_image_url'
+          `).run(qrImageUrl);
+          console.log(`✅ Image QR code mise à jour pour pointer vers: ${destinationUrl}`);
+        }
+      }
     }
   } catch (error) {
     console.error('❌ Erreur lors du seed:', error);

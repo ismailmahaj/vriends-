@@ -16,6 +16,7 @@ const ContactPage = () => {
   const [loading, setLoading] = useState(false);
   const [qrCodeImageUrl, setQrCodeImageUrl] = useState(null);
   const [destinationUrl, setDestinationUrl] = useState(null);
+  const [loadingUrl, setLoadingUrl] = useState(true);
 
   useEffect(() => {
     // Détecter si l'utilisateur arrive via QR code
@@ -55,15 +56,36 @@ const ContactPage = () => {
     
     // Charger l'URL de destination pour l'affichage (celle configurée dans le dashboard)
     const loadDestinationUrl = async () => {
+      setLoadingUrl(true);
       try {
         console.log('🔍 ContactPage: Chargement de l\'URL de destination depuis l\'API...');
         const url = await getQRCodeUrl();
-        console.log('🔍 ContactPage: URL de destination récupérée:', url);
-        if (url) {
-          setDestinationUrl(url);
+        console.log('🔍 ContactPage: URL de destination récupérée depuis API:', url);
+        console.log('🔍 ContactPage: Type de url:', typeof url);
+        console.log('🔍 ContactPage: url est truthy?', !!url);
+        
+        if (url && typeof url === 'string' && url.trim() !== '') {
+          const trimmedUrl = url.trim();
+          console.log('✅ ContactPage: URL de destination définie:', trimmedUrl);
+          
+          // Vérifier que ce n'est pas l'ancienne URL par défaut
+          if (trimmedUrl === 'https://vriends-frontend-production.up.railway.app/contact?qr=true') {
+            console.warn('⚠️ ContactPage: L\'URL récupérée est l\'ancienne URL par défaut');
+            console.warn('⚠️ ContactPage: Vérifiez que l\'URL est bien configurée dans le dashboard');
+          }
+          
+          setDestinationUrl(trimmedUrl);
+        } else {
+          console.warn('⚠️ ContactPage: Aucune URL de destination trouvée ou URL vide');
+          console.warn('⚠️ ContactPage: url =', url);
+          // Ne pas définir destinationUrl, le fallback sera utilisé
         }
       } catch (error) {
         console.error('❌ ContactPage: Erreur chargement URL de destination:', error);
+        console.error('❌ ContactPage: Détails erreur:', error.response?.data || error.message);
+        // En cas d'erreur, ne pas définir destinationUrl, le fallback sera utilisé
+      } finally {
+        setLoadingUrl(false);
       }
     };
     
@@ -97,37 +119,44 @@ const ContactPage = () => {
     }
   };
 
-  // URL de l'image QR code : utiliser celle stockée en base (fixe, pointe vers /qr-redirect)
-  // Cette URL ne changera jamais, même si l'URL de destination change
+  // URL de l'image QR code : utiliser celle stockée en base (pointe directement vers l'URL de destination)
   const getQRCodeImageUrlValue = () => {
-    // Toujours utiliser l'URL fixe de redirection pour garantir que le QR code pointe vers /qr-redirect
-    const redirectUrl = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
-      ? 'https://vriends-frontend-production.up.railway.app/qr-redirect'
-      : `${window.location.origin}/qr-redirect`;
-    
-    const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(redirectUrl)}&bgcolor=F7F5F2&color=3A2E25&margin=12`;
-    
-    console.log('🔍 ContactPage: URL de redirection pour QR code:', redirectUrl);
-    console.log('🔍 ContactPage: URL de l\'image QR code générée:', qrImageUrl);
-    
-    // Si on a une image depuis l'API et qu'elle pointe vers /qr-redirect, l'utiliser
-    if (qrCodeImageUrl && qrCodeImageUrl.includes('/qr-redirect')) {
+    // Si on a une image depuis l'API, l'utiliser
+    if (qrCodeImageUrl) {
       console.log('✅ ContactPage: Utilisation de l\'image QR code depuis l\'API');
       return qrCodeImageUrl;
     }
     
-    // Sinon, utiliser le fallback (généré à la volée, toujours correct)
-    console.log('✅ ContactPage: Utilisation du fallback (QR code généré à la volée)');
+    // Si on a l'URL de destination, générer le QR code à la volée
+    if (destinationUrl && destinationUrl.trim() !== '') {
+      const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(destinationUrl.trim())}&bgcolor=F7F5F2&color=3A2E25&margin=12`;
+      console.log('✅ ContactPage: Génération QR code à la volée vers:', destinationUrl);
+      return qrImageUrl;
+    }
+    
+    // Fallback : générer un QR code vers l'URL par défaut
+    const defaultUrl = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+      ? 'https://vriends-frontend-production.up.railway.app/contact?qr=true'
+      : `${window.location.origin}/contact?qr=true`;
+    
+    const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(defaultUrl)}&bgcolor=F7F5F2&color=3A2E25&margin=12`;
+    console.log('⚠️ ContactPage: Utilisation du fallback (URL par défaut)');
     return qrImageUrl;
   };
   
   const qrCodeUrl = getQRCodeImageUrlValue();
   
   // URL de destination pour l'affichage (celle configurée dans le dashboard)
-  // Si non chargée, afficher l'URL de redirection
-  const displayUrl = destinationUrl || (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
-    ? 'https://vriends-frontend-production.up.railway.app/qr-redirect'
-    : `${window.location.origin}/qr-redirect`);
+  // Toujours afficher l'URL de destination réelle, pas l'URL de redirection
+  const displayUrl = (destinationUrl && destinationUrl.trim() !== '' && !loadingUrl)
+    ? destinationUrl.trim()
+    : (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+      ? 'https://vriends-frontend-production.up.railway.app/contact?qr=true'
+      : `${window.location.origin}/contact?qr=true`);
+  
+  console.log('🔍 ContactPage: destinationUrl depuis state:', destinationUrl);
+  console.log('🔍 ContactPage: loadingUrl:', loadingUrl);
+  console.log('🔍 ContactPage: URL de destination à afficher:', displayUrl);
 
   const styles = {
     page: {
