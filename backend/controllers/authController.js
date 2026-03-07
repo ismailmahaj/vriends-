@@ -21,15 +21,23 @@ const register = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const local_status = localStatus ? 1 : 0;
+    // Si l'utilisateur vient de Poperinge, lui attribuer 10% de réduction
+    const discount_percent = localStatus ? 10 : 0;
 
     const result = db.prepare(`
-      INSERT INTO users (name, email, password, local_status)
-      VALUES (?, ?, ?, ?)
-    `).run(name, email, hashedPassword, local_status);
+      INSERT INTO users (name, email, password, local_status, discount_percent)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(name, email, hashedPassword, local_status, discount_percent);
 
     const newUser = db.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);
 
-    console.log('✅ Utilisateur créé:', { id: newUser.id, email, name });
+    console.log('✅ Utilisateur créé:', { 
+      id: newUser.id, 
+      email, 
+      name, 
+      local_status: local_status === 1 ? 'Oui' : 'Non',
+      discount_percent: discount_percent + '%'
+    });
 
     res.status(201).json({
       success: true,
