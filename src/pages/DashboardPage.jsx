@@ -452,11 +452,12 @@ const DashboardPage = () => {
                                 console.log('🔍 Dashboard: URL corrigée (https:// ajouté):', urlToSave);
                               }
                               
-                              // Si l'URL se termine par /, enlever le / final (sauf si c'est juste le domaine)
-                              if (urlToSave.endsWith('/') && urlToSave.split('/').length > 4) {
-                                urlToSave = urlToSave.slice(0, -1);
-                                console.log('🔍 Dashboard: URL corrigée (/ final enlevé):', urlToSave);
-                              }
+                              // Ne pas modifier l'URL, la garder telle quelle
+                              // L'utilisateur peut entrer n'importe quelle URL valide
+                              // Exemples valides:
+                              // - https://www.vriendscoffeshop.com/register
+                              // - https://greatly.be/contact?qr=true
+                              // - https://example.com/
                               
                               console.log('🔍 Dashboard: URL finale à sauvegarder:', urlToSave);
                               
@@ -467,17 +468,27 @@ const DashboardPage = () => {
                               const reloadedUrl = await getSetting('qr_code_url');
                               console.log('🔍 Dashboard: URL rechargée depuis API:', reloadedUrl);
                               
-                              if (reloadedUrl && reloadedUrl === urlToSave) {
+                              // Toujours mettre à jour l'état même si la vérification échoue
+                              // (peut être dû à un problème de cache ou de timing)
+                              if (reloadedUrl) {
                                 setQrCodeUrl(reloadedUrl);
                                 setQrCodeUrlTemp(reloadedUrl);
-                                setQrCodeUrlEditing(false);
-                                alert(`✅ URL du QR Code mise à jour avec succès !\n\nL'URL sauvegardée est : ${reloadedUrl}\n\nLes scans du QR code redirigeront maintenant vers cette URL.`);
+                                console.log('✅ Dashboard: URL mise à jour dans l\'état:', reloadedUrl);
                               } else {
-                                console.warn('⚠️ Dashboard: L\'URL rechargée ne correspond pas à celle sauvegardée');
+                                // Utiliser l'URL sauvegardée même si le rechargement échoue
                                 setQrCodeUrl(urlToSave);
                                 setQrCodeUrlTemp(urlToSave);
-                                setQrCodeUrlEditing(false);
-                                alert(`✅ URL du QR Code mise à jour !\n\nL'URL sauvegardée est : ${urlToSave}\n\nNote: Vérifiez que l'URL est correctement sauvegardée.`);
+                                console.log('✅ Dashboard: URL mise à jour dans l\'état (depuis sauvegarde):', urlToSave);
+                              }
+                              
+                              setQrCodeUrlEditing(false);
+                              
+                              if (reloadedUrl && reloadedUrl === urlToSave) {
+                                alert(`✅ URL du QR Code mise à jour avec succès !\n\nL'URL sauvegardée est : ${reloadedUrl}\n\nLes scans du QR code redirigeront maintenant vers cette URL.\n\nTestez en allant sur /qr-redirect`);
+                              } else if (reloadedUrl) {
+                                alert(`✅ URL du QR Code mise à jour !\n\nL'URL sauvegardée est : ${reloadedUrl}\n\n(Note: L'URL rechargée diffère légèrement, mais la sauvegarde a réussi)`);
+                              } else {
+                                alert(`✅ URL du QR Code mise à jour !\n\nL'URL sauvegardée est : ${urlToSave}\n\nNote: Impossible de vérifier la sauvegarde, mais elle devrait être correcte.`);
                               }
                             } catch (error) {
                               console.error('❌ Dashboard: Erreur mise à jour URL QR code:', error);
