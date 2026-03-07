@@ -126,7 +126,7 @@ const seedData = async () => {
     const qrUrlExists = db.prepare('SELECT id FROM settings WHERE key = ?').get('qr_code_url');
     if (!qrUrlExists) {
       // URL par défaut : pointe vers la page de contact
-      const defaultUrl = 'https://vriends-frontend-production.up.railway.app/contact?qr=true';
+      const defaultUrl = 'https://www.vriendscoffeshop.com/register';
       db.prepare(`
         INSERT INTO settings (key, value)
         VALUES (?, ?)
@@ -139,7 +139,7 @@ const seedData = async () => {
     if (!imageExists) {
       // Récupérer l'URL de destination (ou utiliser l'URL par défaut)
       const qrUrlSetting = db.prepare('SELECT value FROM settings WHERE key = ?').get('qr_code_url');
-      const destinationUrl = qrUrlSetting ? qrUrlSetting.value : 'https://vriends-frontend-production.up.railway.app/contact?qr=true';
+      const destinationUrl = qrUrlSetting ? qrUrlSetting.value : 'https://www.vriendscoffeshop.com/register';
       
       const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(destinationUrl)}&bgcolor=F7F5F2&color=3A2E25&margin=12`;
       
