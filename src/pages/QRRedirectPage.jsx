@@ -17,27 +17,33 @@ const QRRedirectPage = () => {
         // Charger l'URL depuis l'API
         const targetUrl = await getQRCodeUrl();
         
-        console.log('🔍 QRRedirectPage: URL récupérée:', targetUrl);
+        console.log('🔍 QRRedirectPage: URL récupérée depuis API:', targetUrl);
+        console.log('🔍 QRRedirectPage: Type de targetUrl:', typeof targetUrl);
+        console.log('🔍 QRRedirectPage: targetUrl est truthy?', !!targetUrl);
         
-        if (targetUrl) {
+        if (targetUrl && targetUrl.trim() !== '') {
+          const trimmedUrl = targetUrl.trim();
+          console.log('🔍 QRRedirectPage: URL nettoyée:', trimmedUrl);
+          
           // Si l'URL est complète (avec https://), rediriger vers cette URL
-          if (targetUrl.startsWith('http://') || targetUrl.startsWith('https://')) {
-            console.log('✅ QRRedirectPage: Redirection vers URL externe:', targetUrl);
-            window.location.href = targetUrl;
+          if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
+            console.log('✅ QRRedirectPage: Redirection vers URL externe:', trimmedUrl);
+            window.location.href = trimmedUrl;
             return; // Important : arrêter l'exécution après redirection
           } else {
             // Sinon, c'est un chemin relatif, utiliser navigate
-            console.log('✅ QRRedirectPage: Redirection vers chemin relatif:', targetUrl);
-            navigate(targetUrl, { replace: true });
+            console.log('✅ QRRedirectPage: Redirection vers chemin relatif:', trimmedUrl);
+            navigate(trimmedUrl, { replace: true });
             return;
           }
         } else {
           // Fallback : rediriger vers /contact?qr=true
-          console.log('⚠️ QRRedirectPage: Aucune URL trouvée, redirection vers /contact?qr=true');
+          console.log('⚠️ QRRedirectPage: Aucune URL valide trouvée (targetUrl:', targetUrl, '), redirection vers /contact?qr=true');
           navigate('/contact?qr=true', { replace: true });
         }
       } catch (error) {
         console.error('❌ QRRedirectPage: Erreur redirection QR code:', error);
+        console.error('❌ QRRedirectPage: Détails erreur:', error.response || error.message);
         // Fallback en cas d'erreur
         navigate('/contact?qr=true', { replace: true });
       }

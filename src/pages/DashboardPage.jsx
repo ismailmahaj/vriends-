@@ -430,13 +430,25 @@ const DashboardPage = () => {
                           onClick={async () => {
                             setQrCodeUrlSaving(true);
                             try {
-                              await updateSetting('qr_code_url', qrCodeUrlTemp);
-                              setQrCodeUrl(qrCodeUrlTemp);
+                              const urlToSave = qrCodeUrlTemp.trim();
+                              console.log('🔍 Dashboard: Sauvegarde URL QR code:', urlToSave);
+                              
+                              if (!urlToSave || urlToSave === '') {
+                                alert('❌ L\'URL ne peut pas être vide');
+                                setQrCodeUrlSaving(false);
+                                return;
+                              }
+                              
+                              const response = await updateSetting('qr_code_url', urlToSave);
+                              console.log('🔍 Dashboard: Réponse API:', response);
+                              
+                              setQrCodeUrl(urlToSave);
                               setQrCodeUrlEditing(false);
-                              alert('✅ URL du QR Code mise à jour avec succès !');
+                              alert(`✅ URL du QR Code mise à jour avec succès !\n\nL'URL sauvegardée est : ${urlToSave}\n\nLes scans du QR code redirigeront maintenant vers cette URL.`);
                             } catch (error) {
-                              console.error('Erreur mise à jour URL QR code:', error);
-                              alert('❌ Erreur lors de la mise à jour');
+                              console.error('❌ Dashboard: Erreur mise à jour URL QR code:', error);
+                              console.error('❌ Dashboard: Détails erreur:', error.response?.data || error.message);
+                              alert('❌ Erreur lors de la mise à jour. Vérifiez la console pour plus de détails.');
                             } finally {
                               setQrCodeUrlSaving(false);
                             }

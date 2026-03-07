@@ -30,10 +30,22 @@ export const getQRCodeUrl = async () => {
     };
     
     const baseURL = getApiUrl();
+    console.log('🔍 getQRCodeUrl: Appel API vers:', `${baseURL}/settings?key=qr_code_url`);
+    
     const response = await axios.get(`${baseURL}/settings?key=qr_code_url`);
-    return response.data.value;
+    
+    console.log('🔍 getQRCodeUrl: Réponse complète:', response.data);
+    console.log('🔍 getQRCodeUrl: Valeur récupérée:', response.data.value);
+    
+    if (response.data && response.data.value) {
+      return response.data.value;
+    }
+    
+    console.warn('⚠️ getQRCodeUrl: Aucune valeur dans la réponse');
+    return null;
   } catch (error) {
-    console.error('Erreur récupération URL QR code:', error);
+    console.error('❌ Erreur récupération URL QR code:', error);
+    console.error('❌ Détails erreur:', error.response?.data || error.message);
     return null;
   }
 };
