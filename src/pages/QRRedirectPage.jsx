@@ -9,9 +9,14 @@ const QRRedirectPage = () => {
   useEffect(() => {
     const redirect = async () => {
       // Tracker le scan du QR code
-      trackQRScan();
+      try {
+        await trackQRScan();
+      } catch (error) {
+        console.warn('⚠️ Erreur tracking QR scan (non bloquant):', error);
+      }
 
       try {
+        console.log('🔍 QRRedirectPage: Début de la redirection...');
         console.log('🔍 QRRedirectPage: Chargement de l\'URL depuis l\'API...');
         
         // Charger l'URL depuis l'API
@@ -20,15 +25,20 @@ const QRRedirectPage = () => {
         console.log('🔍 QRRedirectPage: URL récupérée depuis API:', targetUrl);
         console.log('🔍 QRRedirectPage: Type de targetUrl:', typeof targetUrl);
         console.log('🔍 QRRedirectPage: targetUrl est truthy?', !!targetUrl);
+        console.log('🔍 QRRedirectPage: targetUrl.trim() !== \'\'?', targetUrl ? targetUrl.trim() !== '' : false);
         
-        if (targetUrl && targetUrl.trim() !== '') {
+        if (targetUrl && typeof targetUrl === 'string' && targetUrl.trim() !== '') {
           const trimmedUrl = targetUrl.trim();
           console.log('🔍 QRRedirectPage: URL nettoyée:', trimmedUrl);
+          console.log('🔍 QRRedirectPage: trimmedUrl.startsWith(\'https://\')?', trimmedUrl.startsWith('https://'));
+          console.log('🔍 QRRedirectPage: trimmedUrl.startsWith(\'http://\')?', trimmedUrl.startsWith('http://'));
           
           // Si l'URL est complète (avec https://), rediriger vers cette URL
           if (trimmedUrl.startsWith('http://') || trimmedUrl.startsWith('https://')) {
             console.log('✅ QRRedirectPage: Redirection vers URL externe:', trimmedUrl);
-            window.location.href = trimmedUrl;
+            console.log('✅ QRRedirectPage: Exécution de window.location.href =', trimmedUrl);
+            // Utiliser window.location.replace pour éviter que l'utilisateur puisse revenir en arrière
+            window.location.replace(trimmedUrl);
             return; // Important : arrêter l'exécution après redirection
           } else {
             // Sinon, c'est un chemin relatif, utiliser navigate
@@ -38,18 +48,27 @@ const QRRedirectPage = () => {
           }
         } else {
           // Fallback : rediriger vers /contact?qr=true
-          console.log('⚠️ QRRedirectPage: Aucune URL valide trouvée (targetUrl:', targetUrl, '), redirection vers /contact?qr=true');
+          console.log('⚠️ QRRedirectPage: Aucune URL valide trouvée');
+          console.log('⚠️ QRRedirectPage: targetUrl =', targetUrl);
+          console.log('⚠️ QRRedirectPage: Redirection vers /contact?qr=true (fallback)');
           navigate('/contact?qr=true', { replace: true });
         }
       } catch (error) {
         console.error('❌ QRRedirectPage: Erreur redirection QR code:', error);
         console.error('❌ QRRedirectPage: Détails erreur:', error.response || error.message);
+        console.error('❌ QRRedirectPage: Stack:', error.stack);
         // Fallback en cas d'erreur
+        console.log('⚠️ QRRedirectPage: Redirection vers /contact?qr=true (fallback erreur)');
         navigate('/contact?qr=true', { replace: true });
       }
     };
 
-    redirect();
+    // Délai court pour s'assurer que le composant est monté
+    const timeoutId = setTimeout(() => {
+      redirect();
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
   }, [navigate]);
 
   // Afficher un message de chargement pendant la redirection

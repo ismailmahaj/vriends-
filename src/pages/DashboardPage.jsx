@@ -436,14 +436,29 @@ const DashboardPage = () => {
                           onClick={async () => {
                             setQrCodeUrlSaving(true);
                             try {
-                              const urlToSave = qrCodeUrlTemp.trim();
-                              console.log('🔍 Dashboard: Sauvegarde URL QR code:', urlToSave);
+                              let urlToSave = qrCodeUrlTemp.trim();
+                              console.log('🔍 Dashboard: Sauvegarde URL QR code (avant nettoyage):', urlToSave);
                               
                               if (!urlToSave || urlToSave === '') {
                                 alert('❌ L\'URL ne peut pas être vide');
                                 setQrCodeUrlSaving(false);
                                 return;
                               }
+                              
+                              // S'assurer que l'URL est complète
+                              // Si l'URL ne commence pas par http:// ou https://, ajouter https://
+                              if (!urlToSave.startsWith('http://') && !urlToSave.startsWith('https://')) {
+                                urlToSave = 'https://' + urlToSave;
+                                console.log('🔍 Dashboard: URL corrigée (https:// ajouté):', urlToSave);
+                              }
+                              
+                              // Si l'URL se termine par /, enlever le / final (sauf si c'est juste le domaine)
+                              if (urlToSave.endsWith('/') && urlToSave.split('/').length > 4) {
+                                urlToSave = urlToSave.slice(0, -1);
+                                console.log('🔍 Dashboard: URL corrigée (/ final enlevé):', urlToSave);
+                              }
+                              
+                              console.log('🔍 Dashboard: URL finale à sauvegarder:', urlToSave);
                               
                               const response = await updateSetting('qr_code_url', urlToSave);
                               console.log('🔍 Dashboard: Réponse API:', response);
