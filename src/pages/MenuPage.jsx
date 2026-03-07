@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { getProducts } from '../services/productsService';
+import { useLanguage } from '../context/LanguageContext';
 
 const MenuPage = () => {
+  const { t } = useLanguage();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
@@ -28,7 +30,7 @@ const MenuPage = () => {
   const handleAddToCart = (product) => {
     if (!product.available) return;
     addItem(product);
-    setToast('Ajouté au panier ✓');
+    setToast(t('addedToCart'));
     setTimeout(() => setToast(null), 2000);
   };
 
@@ -142,8 +144,8 @@ const MenuPage = () => {
     <div style={styles.page}>
       <div style={styles.container}>
         <div style={styles.header}>
-          <h1 style={styles.title}>Notre Menu</h1>
-          <p style={styles.subtitle}>Découvrez notre sélection</p>
+          <h1 style={styles.title}>{t('ourMenu')}</h1>
+          <p style={styles.subtitle}>{t('menuSubtitle')}</p>
         </div>
         <div style={styles.grid}>
           {products.map((product) => {
@@ -174,7 +176,7 @@ const MenuPage = () => {
                   {finalPrice.toFixed(2)}€
                 </div>
                 {!product.available && (
-                  <div style={styles.unavailable}>Indisponible</div>
+                  <div style={styles.unavailable}>{t('unavailable')}</div>
                 )}
                 <button
                   onClick={() => handleAddToCart(product)}
@@ -184,7 +186,7 @@ const MenuPage = () => {
                     ...(!product.available && styles.buttonDisabled)
                   }}
                 >
-                  + Ajouter
+                  + {t('addToCart')}
                 </button>
               </div>
             );

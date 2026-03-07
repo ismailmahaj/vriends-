@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { createOrder } from '../services/ordersService';
+import { useLanguage } from '../context/LanguageContext';
 
 const CartPage = () => {
+  const { t } = useLanguage();
   const { items, updateQty, removeItem, clearCart, subtotal } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -47,7 +49,7 @@ const CartPage = () => {
 
   const handleOrder = async () => {
     if (items.length === 0) {
-      setError('Votre panier est vide');
+      setError(t('cartEmpty'));
       return;
     }
 
@@ -238,7 +240,7 @@ const CartPage = () => {
               onClick={() => navigate('/menu')}
               style={styles.button}
             >
-              Voir le menu
+              {t('viewMenu')}
             </button>
           </div>
         </div>
@@ -256,7 +258,7 @@ const CartPage = () => {
       <div style={styles.container}>
         <div style={styles.list}>
           <h2 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2.5rem', color: '#3A2E25', marginBottom: '2rem' }}>
-            Votre panier
+            {t('yourCart')}
           </h2>
           {error && <div style={styles.error}>{error}</div>}
           {items.map((item) => (
@@ -283,7 +285,7 @@ const CartPage = () => {
                   onClick={() => removeItem(item.product.id)}
                   style={styles.removeButton}
                 >
-                  Supprimer
+                  {t('remove')}
                 </button>
               </div>
               <div style={styles.itemTotal}>
@@ -294,25 +296,25 @@ const CartPage = () => {
         </div>
 
         <div style={styles.summary}>
-          <h3 style={styles.summaryTitle}>Récapitulatif</h3>
+          <h3 style={styles.summaryTitle}>{t('summary')}</h3>
           <div style={styles.summaryRow}>
-            <span>Sous-total</span>
+            <span>{t('subtotal')}</span>
             <span>{subtotal.toFixed(2)}€</span>
           </div>
           {discount > 0 && (
             <>
               <div style={styles.summaryRow}>
-                <span>Réduction ({user.discount_percent}%)</span>
+                <span>{t('discount')} ({user.discount_percent}%)</span>
                 <span style={{ color: '#2e7d32' }}>-{discount.toFixed(2)}€</span>
               </div>
             </>
           )}
           <div style={{ ...styles.summaryRow, ...styles.summaryTotal }}>
-            <span>Total</span>
+            <span>{t('total')}</span>
             <span>{total.toFixed(2)}€</span>
           </div>
           <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.9rem', color: '#3A2E25', display: 'block', marginTop: '2rem' }}>
-            Heure de retrait
+            {t('pickupTime')}
           </label>
           <select
             value={pickupTime}
@@ -342,7 +344,7 @@ const CartPage = () => {
             disabled={loading}
             style={styles.button}
           >
-            {loading ? 'Traitement...' : 'Passer la commande'}
+            {loading ? t('placingOrder') : t('placeOrder')}
           </button>
         </div>
       </div>

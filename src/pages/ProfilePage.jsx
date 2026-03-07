@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getMyOrders } from '../services/ordersService';
+import { useLanguage } from '../context/LanguageContext';
 
 const ProfilePage = () => {
+  const { t } = useLanguage();
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
@@ -43,10 +45,10 @@ const ProfilePage = () => {
 
   const getStatusText = (status) => {
     switch (status) {
-      case 'pending': return 'En attente';
-      case 'ready': return 'Prêt';
-      case 'completed': return 'Terminée';
-      case 'cancelled': return 'Annulée';
+      case 'pending': return t('pending');
+      case 'ready': return t('ready');
+      case 'completed': return t('completed');
+      case 'cancelled': return t('cancelled');
       default: return status;
     }
   };
@@ -170,54 +172,54 @@ const ProfilePage = () => {
   return (
     <div style={styles.page}>
       <div style={styles.container}>
-        <h1 style={styles.title}>Mon Profil</h1>
+        <h1 style={styles.title}>{t('profile')}</h1>
 
         <div style={styles.section}>
-          <h2 style={styles.sectionTitle}>Identité</h2>
+          <h2 style={styles.sectionTitle}>{t('identity')}</h2>
           <div style={styles.infoRow}>
-            <span style={styles.label}>Nom :</span>
+            <span style={styles.label}>{t('name')} :</span>
             <span>{user.name}</span>
           </div>
           <div style={styles.infoRow}>
-            <span style={styles.label}>Email :</span>
+            <span style={styles.label}>{t('email')} :</span>
             <span>{user.email}</span>
           </div>
           <div style={styles.infoRow}>
-            <span style={styles.label}>Statut :</span>
+            <span style={styles.label}>{t('orderStatus')} :</span>
             <span>
               {user.local_status ? (
-                <span style={styles.badge}>✓ Résident local</span>
+                <span style={styles.badge}>✓ {t('localBadge')}</span>
               ) : (
-                'Non local'
+                t('nonLocal')
               )}
             </span>
           </div>
         </div>
 
         <div style={styles.section}>
-          <h2 style={styles.sectionTitle}>Avantages</h2>
+          <h2 style={styles.sectionTitle}>{t('advantages')}</h2>
           {user.local_status && user.discount_percent > 0 ? (
-            <div style={styles.discount}>Réduction : {user.discount_percent}%</div>
+            <div style={styles.discount}>{t('discountActive')} : {user.discount_percent}%</div>
           ) : (
             <div style={{ fontFamily: "'DM Sans', sans-serif", color: '#1C1C1C', opacity: 0.7 }}>
-              Aucune remise active
+              {t('noDiscount')}
             </div>
           )}
         </div>
 
         <div style={styles.section}>
-          <h2 style={styles.sectionTitle}>Mes commandes</h2>
+          <h2 style={styles.sectionTitle}>{t('orders')}</h2>
           {loading ? (
-            <div>Chargement...</div>
+            <div>{t('loading')}</div>
           ) : orders.length === 0 ? (
             <div style={{ fontFamily: "'DM Sans', sans-serif", color: '#1C1C1C', opacity: 0.7 }}>
-              Aucune commande
+              {t('noOrders')}
             </div>
           ) : (
             orders.map((order) => (
               <div key={order.id} style={styles.orderCard}>
                 <div style={styles.orderHeader}>
-                  <div style={styles.orderId}>Commande #{order.id}</div>
+                  <div style={styles.orderId}>{t('orderNumber')} #{order.id}</div>
                   <div
                     style={{
                       ...styles.statusBadge,
@@ -227,8 +229,8 @@ const ProfilePage = () => {
                     {getStatusText(order.status)}
                   </div>
                 </div>
-                <div style={styles.orderInfo}>Retrait : {order.pickup_time}</div>
-                <div style={styles.orderInfo}>Total : {order.total_price.toFixed(2)}€</div>
+                <div style={styles.orderInfo}>{t('pickupTimeLabel')} : {order.pickup_time}</div>
+                <div style={styles.orderInfo}>{t('total')} : {order.total_price.toFixed(2)}€</div>
                 {order.items && order.items.length > 0 && (
                   <div style={styles.orderItems}>
                     {order.items.map((item, i) => (
@@ -247,7 +249,7 @@ const ProfilePage = () => {
         </div>
 
         <button onClick={handleLogout} style={styles.button}>
-          Se déconnecter
+          {t('disconnect')}
         </button>
       </div>
     </div>

@@ -1,7 +1,10 @@
 import { Link } from 'react-router-dom';
 import { useEffect } from 'react';
+import { useLanguage } from '../context/LanguageContext';
 
 const HomePage = () => {
+  const { t } = useLanguage();
+  
   useEffect(() => {
     document.body.style.background = '#E6DCCB';
   }, []);
@@ -353,19 +356,18 @@ const HomePage = () => {
         <div style={styles.leftCol}>
           <div style={styles.eyebrow}>
             <div style={styles.eyebrowLine}></div>
-            <div style={styles.eyebrowText}>Poperinge, Belgique</div>
+            <div style={styles.eyebrowText}>{t('eyebrow')}</div>
           </div>
           <h1 style={styles.title}>
-            Votre café,<br />
-            <span style={styles.titleItalic}>votre rythme.</span>
+            {t('title1')}<br />
+            <span style={styles.titleItalic}>{t('title2')}</span>
           </h1>
           <p style={styles.subtitle}>
-            Commandez à l'avance, récupérez sans attendre.
-            Vriends Poperinge, c'est le café de quartier qui respecte votre temps.
+            {t('subtitle')}
           </p>
           <div style={styles.buttons}>
-            <Link to="/menu" style={styles.btnPrimary}>Commander maintenant</Link>
-            <Link to="/menu" style={styles.btnSecondary}>Voir le menu</Link>
+            <Link to="/menu" style={styles.btnPrimary}>{t('orderNow')}</Link>
+            <Link to="/menu" style={styles.btnSecondary}>{t('viewMenu')}</Link>
           </div>
         </div>
 
@@ -373,21 +375,21 @@ const HomePage = () => {
           <div style={styles.circle1}></div>
           <div style={styles.circle2}></div>
           <div style={styles.badge}>
-            <div style={styles.badgePercent}>−10%</div>
-            <div style={styles.badgeText}>Pour les locaux</div>
+            <div style={styles.badgePercent}>{t('discountBadge')}</div>
+            <div style={styles.badgeText}>{t('forLocals')}</div>
           </div>
-          <div style={styles.tag}>Ouvert aujourd'hui</div>
+          <div style={styles.tag}>{t('openToday')}</div>
           <div style={styles.quote}>
-            "Un endroit où tout le monde se connaît."
+            {t('quote')}
           </div>
           <div style={styles.hours}>
             <div style={styles.hoursItem}>
-              <div>Lun — Ven</div>
-              <div style={{ marginTop: '0.3rem' }}>7h30 — 17h</div>
+              <div>{t('hoursWeek')}</div>
+              <div style={{ marginTop: '0.3rem' }}>{t('hoursWeekTime')}</div>
             </div>
             <div style={styles.hoursItem}>
-              <div>Sam — Dim</div>
-              <div style={{ marginTop: '0.3rem' }}>8h — 15h</div>
+              <div>{t('hoursWeekend')}</div>
+              <div style={{ marginTop: '0.3rem' }}>{t('hoursWeekendTime')}</div>
             </div>
           </div>
         </div>
@@ -396,23 +398,23 @@ const HomePage = () => {
       <div style={styles.features}>
         <div style={styles.feature}>
           <div style={styles.featureNum}>01</div>
-          <div style={styles.featureTitle}>Commande à l'avance</div>
+          <div style={styles.featureTitle}>{t('feature1Title')}</div>
           <div style={styles.featureText}>
-            Préparez votre commande la veille et récupérez-la sans attendre le lendemain.
+            {t('feature1Text')}
           </div>
         </div>
         <div style={styles.feature}>
           <div style={styles.featureNum}>02</div>
-          <div style={styles.featureTitle}>Réductions locales</div>
+          <div style={styles.featureTitle}>{t('feature2Title')}</div>
           <div style={styles.featureText}>
-            Vous habitez Poperinge ? Bénéficiez automatiquement de réductions sur vos commandes.
+            {t('feature2Text')}
           </div>
         </div>
         <div style={styles.feature}>
           <div style={styles.featureNum}>03</div>
-          <div style={styles.featureTitle}>Retrait rapide</div>
+          <div style={styles.featureTitle}>{t('feature3Title')}</div>
           <div style={styles.featureText}>
-            Zéro attente. Votre commande est prête à l'heure que vous avez choisie.
+            {t('feature3Text')}
           </div>
         </div>
       </div>
@@ -420,10 +422,10 @@ const HomePage = () => {
       <div style={styles.menuPreview}>
         <div style={styles.menuHeader}>
           <div>
-            <div style={styles.menuLabel}>Notre sélection</div>
-            <div style={styles.menuTitle}>Le menu du moment</div>
+            <div style={styles.menuLabel}>{t('ourSelection')}</div>
+            <div style={styles.menuTitle}>{t('menuOfTheMoment')}</div>
           </div>
-          <Link to="/menu" style={styles.menuLink}>Tout le menu →</Link>
+          <Link to="/menu" style={styles.menuLink}>{t('viewAllMenu')}</Link>
         </div>
         <div style={styles.productsGrid}>
           {products.map((product, i) => (
@@ -439,25 +441,23 @@ const HomePage = () => {
 
       <div style={styles.localProgram}>
         <div>
-          <div style={styles.localTitle}>Vous êtes de Poperinge ?</div>
+          <div style={styles.localTitle}>{t('youAreFromPoperinge')}</div>
           <div style={styles.localText}>
-            Rejoignez notre programme local et bénéficiez d'avantages exclusifs :
-            réductions automatiques, accès prioritaire aux commandes et intégration
-            dans la communauté Vriends.
+            {t('localAdvantages')}
           </div>
         </div>
         <div style={styles.perks}>
           <div style={styles.perk}>
             <div style={styles.perkIcon}>%</div>
-            <div style={styles.perkText}>Réduction automatique</div>
+            <div style={styles.perkText}>{t('autoDiscount')}</div>
           </div>
           <div style={styles.perk}>
             <div style={styles.perkIcon}>★</div>
-            <div style={styles.perkText}>Accès prioritaire</div>
+            <div style={styles.perkText}>{t('priorityAccess')}</div>
           </div>
           <div style={styles.perk}>
             <div style={styles.perkIcon}>♥</div>
-            <div style={styles.perkText}>Communauté Vriends</div>
+            <div style={styles.perkText}>{t('community')}</div>
           </div>
         </div>
       </div>
@@ -474,13 +474,13 @@ const HomePage = () => {
         <div style={styles.footerSection}>
           <div style={{ marginBottom: '1rem', color: '#F7F5F2' }}>Navigation</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-            <Link to="/menu" style={{ color: 'rgba(247,245,242,.6)', textDecoration: 'none' }}>Menu</Link>
-            <Link to="/contact" style={{ color: 'rgba(247,245,242,.6)', textDecoration: 'none' }}>Contact</Link>
+            <Link to="/menu" style={{ color: 'rgba(247,245,242,.6)', textDecoration: 'none' }}>{t('menu')}</Link>
+            <Link to="/contact" style={{ color: 'rgba(247,245,242,.6)', textDecoration: 'none' }}>{t('contact')}</Link>
           </div>
         </div>
         <div style={styles.footerSection}>
-          <div style={{ marginBottom: '1rem', color: '#F7F5F2' }}>Contact</div>
-          <div>info@vriendspoperinge.be</div>
+          <div style={{ marginBottom: '1rem', color: '#F7F5F2' }}>{t('contact')}</div>
+          <div>{t('emailContact')}</div>
         </div>
       </div>
       <div style={styles.footerBottom}>

@@ -5,8 +5,10 @@ import { getContacts, markTreated, deleteContact, exportCSV } from '../services/
 import { getUsers, exportUsersCSV } from '../services/authService';
 import { getQRStats } from '../services/qrService';
 import { getSetting, updateSetting } from '../services/settingsService';
+import { useLanguage } from '../context/LanguageContext';
 
 const DashboardPage = () => {
+  const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('orders');
   const [orders, setOrders] = useState([]);
   const [products, setProducts] = useState([]);
@@ -106,7 +108,7 @@ const DashboardPage = () => {
   };
 
   const handleDeleteContact = async (id) => {
-    if (!confirm('Supprimer ce contact ?')) return;
+    if (!confirm(t('deleteContactConfirm'))) return;
     setDeletingId(id);
     try {
       await deleteContact(id);
@@ -305,25 +307,25 @@ const DashboardPage = () => {
             style={{ ...styles.tab, ...(activeTab === 'orders' && styles.tabActive) }}
             onClick={() => setActiveTab('orders')}
           >
-            Commandes {pendingCount > 0 && <span style={styles.badge}>{pendingCount}</span>}
+            {t('orders')} {pendingCount > 0 && <span style={styles.badge}>{pendingCount}</span>}
           </div>
           <div
             style={{ ...styles.tab, ...(activeTab === 'products' && styles.tabActive) }}
             onClick={() => setActiveTab('products')}
           >
-            Produits
+            {t('products')}
           </div>
           <div
             style={{ ...styles.tab, ...(activeTab === 'contacts' && styles.tabActive) }}
             onClick={() => setActiveTab('contacts')}
           >
-            Contacts & Leads {contacts.newCount > 0 && <span style={styles.badge}>{contacts.newCount}</span>}
+            {t('contactsLeads')} {contacts.newCount > 0 && <span style={styles.badge}>{contacts.newCount}</span>}
           </div>
           <div
             style={{ ...styles.tab, ...(activeTab === 'users' && styles.tabActive) }}
             onClick={() => setActiveTab('users')}
           >
-            Utilisateurs
+            {t('users')}
           </div>
         </div>
 
@@ -345,17 +347,17 @@ const DashboardPage = () => {
                               <div style={styles.orderInfo}>
                                 <strong>Commande #{order.id}</strong> - {order.user?.name || 'N/A'} ({order.user?.email || 'N/A'})
                               </div>
-                              <div style={styles.orderInfo}>Total : {order.total_price.toFixed(2)}€</div>
+                              <div style={styles.orderInfo}>{t('orderTotal')} : {order.total_price.toFixed(2)}€</div>
                             </div>
                             <select
                               value={order.status}
                               onChange={(e) => handleStatusChange(order.id, e.target.value)}
                               style={styles.select}
                             >
-                              <option value="pending">En attente</option>
-                              <option value="ready">Prêt</option>
-                              <option value="completed">Terminée</option>
-                              <option value="cancelled">Annulée</option>
+                              <option value="pending">{t('pending')}</option>
+                              <option value="ready">{t('ready')}</option>
+                              <option value="completed">{t('completed')}</option>
+                              <option value="cancelled">{t('cancelled')}</option>
                             </select>
                           </div>
                           {order.items && order.items.length > 0 && (
@@ -402,7 +404,7 @@ const DashboardPage = () => {
                 {/* Configuration URL QR Code */}
                 <div style={{ marginBottom: '2rem', padding: '1.5rem', background: '#F7F5F2', borderRadius: '2px' }}>
                   <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.5rem', color: '#3A2E25', marginBottom: '1rem' }}>
-                    🔗 Configuration QR Code
+                    🔗 {t('qrCodeConfig')}
                   </div>
                   <div style={{ fontFamily: "'DM Sans', sans-serif", marginBottom: '1rem', padding: '1rem', background: '#E6DCCB', borderRadius: '4px', marginBottom: '1rem' }}>
                     <div style={{ fontSize: '0.85rem', color: '#3A2E25', fontWeight: 500, marginBottom: '0.5rem' }}>
@@ -414,7 +416,7 @@ const DashboardPage = () => {
                   </div>
                   <div style={{ fontFamily: "'DM Sans', sans-serif", marginBottom: '1rem' }}>
                     <label style={{ display: 'block', fontSize: '0.85rem', color: '#1C1C1C', opacity: 0.7, marginBottom: '0.5rem' }}>
-                      URL de destination (où rediriger les scans du QR code)
+                      {t('qrCodeDestinationUrl')}
                     </label>
                     {qrCodeUrlEditing ? (
                       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -440,7 +442,7 @@ const DashboardPage = () => {
                               console.log('🔍 Dashboard: Sauvegarde URL QR code (avant nettoyage):', urlToSave);
                               
                               if (!urlToSave || urlToSave === '') {
-                                alert('❌ L\'URL ne peut pas être vide');
+                                alert(`❌ ${t('error')}: L'URL ne peut pas être vide`);
                                 setQrCodeUrlSaving(false);
                                 return;
                               }
@@ -484,11 +486,11 @@ const DashboardPage = () => {
                               setQrCodeUrlEditing(false);
                               
                               if (reloadedUrl && reloadedUrl === urlToSave) {
-                                alert(`✅ URL du QR Code mise à jour avec succès !\n\nL'URL sauvegardée est : ${reloadedUrl}\n\nLes scans du QR code redirigeront maintenant vers cette URL.\n\nTestez en allant sur /qr-redirect`);
+                                alert(`✅ ${t('qrCodeUrlUpdated')}\n\nL'URL sauvegardée est : ${reloadedUrl}\n\nLes scans du QR code redirigeront maintenant vers cette URL.\n\nTestez en allant sur /qr-redirect`);
                               } else if (reloadedUrl) {
-                                alert(`✅ URL du QR Code mise à jour !\n\nL'URL sauvegardée est : ${reloadedUrl}\n\n(Note: L'URL rechargée diffère légèrement, mais la sauvegarde a réussi)`);
+                                alert(`✅ ${t('qrCodeUrlUpdated')}\n\nL'URL sauvegardée est : ${reloadedUrl}\n\n(Note: L'URL rechargée diffère légèrement, mais la sauvegarde a réussi)`);
                               } else {
-                                alert(`✅ URL du QR Code mise à jour !\n\nL'URL sauvegardée est : ${urlToSave}\n\nNote: Impossible de vérifier la sauvegarde, mais elle devrait être correcte.`);
+                                alert(`✅ ${t('qrCodeUrlUpdated')}\n\nL'URL sauvegardée est : ${urlToSave}\n\nNote: Impossible de vérifier la sauvegarde, mais elle devrait être correcte.`);
                               }
                             } catch (error) {
                               console.error('❌ Dashboard: Erreur mise à jour URL QR code:', error);
@@ -511,7 +513,7 @@ const DashboardPage = () => {
                             cursor: 'pointer'
                           }}
                         >
-                          {qrCodeUrlSaving ? 'Sauvegarde...' : '✓ Sauvegarder'}
+                          {qrCodeUrlSaving ? t('saving') : `✓ ${t('save')}`}
                         </button>
                         <button
                           onClick={() => {
@@ -530,13 +532,13 @@ const DashboardPage = () => {
                             cursor: 'pointer'
                           }}
                         >
-                          Annuler
+                          {t('cancel')}
                         </button>
                       </div>
                     ) : (
                       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                         <div style={{ flex: 1, padding: '0.7rem', background: '#E6DCCB', borderRadius: '2px', fontFamily: "'DM Sans', sans-serif", fontSize: '0.9rem', color: '#1C1C1C' }}>
-                          {qrCodeUrl || 'Non configuré'}
+                          {qrCodeUrl || t('error') + ': Non configuré'}
                         </div>
                         <button
                           onClick={() => {
@@ -555,35 +557,35 @@ const DashboardPage = () => {
                             cursor: 'pointer'
                           }}
                         >
-                          ✏️ Modifier
+                          ✏️ {t('edit')}
                         </button>
                       </div>
                     )}
                     <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#1C1C1C', opacity: 0.6 }}>
-                      Le QR code pointe vers une URL fixe de redirection. Cette URL est la destination finale où les utilisateurs seront redirigés après avoir scanné le QR code.
+                      {t('qrCodeUrlInfo')}
                     </div>
                   </div>
                 </div>
 
                 <div style={{ marginBottom: '2rem', padding: '1.5rem', background: '#F7F5F2', borderRadius: '2px' }}>
                   <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.5rem', color: '#3A2E25', marginBottom: '1rem' }}>
-                    📱 Statistiques QR Code
+                    📱 {t('qrScans')}
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: window.innerWidth > 768 ? 'repeat(4, 1fr)' : 'repeat(2, 1fr)', gap: '1.5rem', fontFamily: "'DM Sans', sans-serif" }}>
                     <div>
-                      <div style={{ fontSize: '0.85rem', color: '#1C1C1C', opacity: 0.7, marginBottom: '0.5rem' }}>Total</div>
+                      <div style={{ fontSize: '0.85rem', color: '#1C1C1C', opacity: 0.7, marginBottom: '0.5rem' }}>{t('totalScans')}</div>
                       <div style={{ fontSize: '1.8rem', color: '#3A2E25', fontWeight: 600 }}>{qrStats.total}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '0.85rem', color: '#1C1C1C', opacity: 0.7, marginBottom: '0.5rem' }}>Aujourd'hui</div>
+                      <div style={{ fontSize: '0.85rem', color: '#1C1C1C', opacity: 0.7, marginBottom: '0.5rem' }}>{t('today')}</div>
                       <div style={{ fontSize: '1.8rem', color: '#3A2E25', fontWeight: 600 }}>{qrStats.today}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '0.85rem', color: '#1C1C1C', opacity: 0.7, marginBottom: '0.5rem' }}>Cette semaine</div>
+                      <div style={{ fontSize: '0.85rem', color: '#1C1C1C', opacity: 0.7, marginBottom: '0.5rem' }}>{t('thisWeek')}</div>
                       <div style={{ fontSize: '1.8rem', color: '#3A2E25', fontWeight: 600 }}>{qrStats.thisWeek}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '0.85rem', color: '#1C1C1C', opacity: 0.7, marginBottom: '0.5rem' }}>Ce mois</div>
+                      <div style={{ fontSize: '0.85rem', color: '#1C1C1C', opacity: 0.7, marginBottom: '0.5rem' }}>{t('thisMonth')}</div>
                       <div style={{ fontSize: '1.8rem', color: '#3A2E25', fontWeight: 600 }}>{qrStats.thisMonth}</div>
                     </div>
                   </div>
@@ -591,14 +593,14 @@ const DashboardPage = () => {
                 <button 
                   onClick={async () => {
                     if (contacts.contacts.length === 0) {
-                      alert('Aucun contact à exporter');
+                      alert(t('noContactsToExport'));
                       return;
                     }
                     await exportCSV();
                   }} 
                   style={styles.exportButton}
                 >
-                  ↓ Exporter CSV ({contacts.total} contact{contacts.total > 1 ? 's' : ''})
+                  ↓ {t('exportCSV')} ({contacts.total} contact{contacts.total > 1 ? 's' : ''})
                 </button>
                 {contacts.contacts.map((contact) => (
                   <div key={contact.id} style={styles.contactCard}>
@@ -611,7 +613,7 @@ const DashboardPage = () => {
                           color: '#F7F5F2'
                         }}
                       >
-                        {contact.treated ? 'Traité' : 'Nouveau'}
+                        {contact.treated ? t('treated') : t('new')}
                       </div>
                     </div>
                     <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.9rem', color: '#1C1C1C', marginBottom: '0.5rem' }}>
@@ -630,14 +632,14 @@ const DashboardPage = () => {
                             onClick={() => handleMarkTreated(contact.id, !contact.treated)}
                             style={{ ...styles.button, background: contact.treated ? '#ff9800' : '#4caf50', color: '#F7F5F2' }}
                           >
-                            {contact.treated ? '↩ Non traité' : '✓ Traité'}
+                            {contact.treated ? t('markUntreated') : t('markTreated')}
                           </button>
                           <button
                             onClick={() => handleDeleteContact(contact.id)}
                             disabled={deletingId === contact.id}
                             style={{ ...styles.button, background: '#f44336', color: '#F7F5F2' }}
                           >
-                            {deletingId === contact.id ? 'Suppression...' : '✕ Supprimer'}
+                            {deletingId === contact.id ? t('loading') : `✕ ${t('delete')}`}
                           </button>
                         </div>
                       </div>
@@ -650,7 +652,7 @@ const DashboardPage = () => {
                           onClick={() => setExpandedContact(contact.id)}
                           style={{ ...styles.button, background: '#3A2E25', color: '#F7F5F2' }}
                         >
-                          ▼ Lire
+                          ▼ {t('read')}
                         </button>
                       </div>
                     )}
@@ -664,14 +666,14 @@ const DashboardPage = () => {
                 <button 
                   onClick={async () => {
                     if (users.length === 0) {
-                      alert('Aucun utilisateur à exporter');
+                      alert(t('noUsersToExport'));
                       return;
                     }
                     await exportUsersCSV();
                   }} 
                   style={styles.exportButton}
                 >
-                  ↓ Exporter CSV ({users.length} utilisateur{users.length > 1 ? 's' : ''})
+                  ↓ {t('exportCSV')} ({users.length} utilisateur{users.length > 1 ? 's' : ''})
                 </button>
                 {users.map((user) => (
                   <div key={user.id} style={styles.contactCard}>
@@ -684,7 +686,7 @@ const DashboardPage = () => {
                           color: '#F7F5F2'
                         }}
                       >
-                        {user.role === 'admin' ? 'Admin' : 'Client'}
+                        {user.role === 'admin' ? t('admin') : t('client')}
                       </div>
                     </div>
                     <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.9rem', color: '#1C1C1C', marginBottom: '0.5rem' }}>
@@ -692,11 +694,11 @@ const DashboardPage = () => {
                     </div>
                     <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.9rem', color: '#1C1C1C', marginBottom: '0.5rem' }}>
                       {user.local_status && (
-                        <span style={{ color: '#2e7d32', fontWeight: 500 }}>✓ Résident local</span>
+                        <span style={{ color: '#2e7d32', fontWeight: 500 }}>✓ {t('localBadge')}</span>
                       )}
                       {user.local_status && user.discount_percent > 0 && (
                         <span style={{ marginLeft: '1rem', color: '#3A2E25' }}>
-                          Réduction: {user.discount_percent}%
+                          {t('reduction')}: {user.discount_percent}%
                         </span>
                       )}
                     </div>

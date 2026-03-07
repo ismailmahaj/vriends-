@@ -1,11 +1,13 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
+import { useLanguage } from '../context/LanguageContext';
 import { useState } from 'react';
 
 const Navbar = () => {
   const { user, logout, isAdmin } = useAuth();
   const { itemCount } = useCart();
+  const { t, language, changeLanguage } = useLanguage();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -105,26 +107,75 @@ const Navbar = () => {
         
         {window.innerWidth > 768 && (
           <div style={styles.navLinks}>
-            <Link to="/menu" style={styles.navLink}>Menu</Link>
-            <Link to="/contact" style={styles.navLink}>Contact</Link>
-            {isAdmin && <Link to="/dashboard" style={styles.navLink}>Dashboard</Link>}
+            <Link to="/menu" style={styles.navLink}>{t('menu')}</Link>
+            <Link to="/contact" style={styles.navLink}>{t('contact')}</Link>
+            {isAdmin && <Link to="/dashboard" style={styles.navLink}>{t('dashboard')}</Link>}
           </div>
         )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+          {/* Sélecteur de langue */}
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            <button
+              onClick={() => changeLanguage('fr')}
+              style={{
+                background: language === 'fr' ? '#3A2E25' : 'transparent',
+                color: language === 'fr' ? '#F7F5F2' : '#3A2E25',
+                border: '1px solid #3A2E25',
+                padding: '0.3rem 0.6rem',
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: '0.75rem',
+                cursor: 'pointer',
+                textTransform: 'uppercase'
+              }}
+            >
+              FR
+            </button>
+            <button
+              onClick={() => changeLanguage('nl')}
+              style={{
+                background: language === 'nl' ? '#3A2E25' : 'transparent',
+                color: language === 'nl' ? '#F7F5F2' : '#3A2E25',
+                border: '1px solid #3A2E25',
+                padding: '0.3rem 0.6rem',
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: '0.75rem',
+                cursor: 'pointer',
+                textTransform: 'uppercase'
+              }}
+            >
+              NL
+            </button>
+            <button
+              onClick={() => changeLanguage('en')}
+              style={{
+                background: language === 'en' ? '#3A2E25' : 'transparent',
+                color: language === 'en' ? '#F7F5F2' : '#3A2E25',
+                border: '1px solid #3A2E25',
+                padding: '0.3rem 0.6rem',
+                fontFamily: "'DM Sans', sans-serif",
+                fontSize: '0.75rem',
+                cursor: 'pointer',
+                textTransform: 'uppercase'
+              }}
+            >
+              EN
+            </button>
+          </div>
+          
           {user ? (
             <>
               <Link to="/cart" style={styles.navLink}>
-                Panier {itemCount > 0 && `(${itemCount})`}
+                {t('cart')} {itemCount > 0 && `(${itemCount})`}
               </Link>
               <span style={styles.navLink}>{user.name}</span>
               <button onClick={handleLogout} style={styles.commandButton}>
-                Déconnexion
+                {t('logout')}
               </button>
             </>
           ) : (
             <Link to="/menu" style={styles.commandButton}>
-              Commander
+              {t('order')}
             </Link>
           )}
           
@@ -139,9 +190,9 @@ const Navbar = () => {
       
       {window.innerWidth <= 768 && (
         <div style={styles.mobileMenu}>
-          <Link to="/menu" style={styles.navLink}>Menu</Link>
-          <Link to="/contact" style={styles.navLink}>Contact</Link>
-          {isAdmin && <Link to="/dashboard" style={styles.navLink}>Dashboard</Link>}
+          <Link to="/menu" style={styles.navLink}>{t('menu')}</Link>
+          <Link to="/contact" style={styles.navLink}>{t('contact')}</Link>
+          {isAdmin && <Link to="/dashboard" style={styles.navLink}>{t('dashboard')}</Link>}
         </div>
       )}
     </nav>

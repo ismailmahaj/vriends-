@@ -3,8 +3,10 @@ import { useSearchParams } from 'react-router-dom';
 import { submitContact } from '../services/contactsService';
 import { trackQRScan } from '../services/qrService';
 import { getQRCodeImageUrl, getQRCodeUrl } from '../services/settingsService';
+import { useLanguage } from '../context/LanguageContext';
 
 const ContactPage = () => {
+  const { t } = useLanguage();
   const [searchParams] = useSearchParams();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -74,6 +76,9 @@ const ContactPage = () => {
             console.warn('⚠️ ContactPage: Vérifiez que l\'URL est bien configurée dans le dashboard');
           }
           
+          // Log pour vérification
+          console.log('✅ ContactPage: URL de destination chargée:', trimmedUrl);
+          
           setDestinationUrl(trimmedUrl);
         } else {
           console.warn('⚠️ ContactPage: Aucune URL de destination trouvée ou URL vide');
@@ -135,12 +140,10 @@ const ContactPage = () => {
     }
     
     // Fallback : générer un QR code vers l'URL par défaut
-    const defaultUrl = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
-      ? 'https://vriends-frontend-production.up.railway.app/contact?qr=true'
-      : `${window.location.origin}/contact?qr=true`;
+    const defaultUrl = 'https://www.vriendscoffeshop.com/register';
     
     const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(defaultUrl)}&bgcolor=F7F5F2&color=3A2E25&margin=12`;
-    console.log('⚠️ ContactPage: Utilisation du fallback (URL par défaut)');
+    console.log('⚠️ ContactPage: Utilisation du fallback (URL par défaut):', defaultUrl);
     return qrImageUrl;
   };
   
@@ -150,9 +153,7 @@ const ContactPage = () => {
   // Toujours afficher l'URL de destination réelle, pas l'URL de redirection
   const displayUrl = (destinationUrl && destinationUrl.trim() !== '' && !loadingUrl)
     ? destinationUrl.trim()
-    : (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
-      ? 'https://vriends-frontend-production.up.railway.app/contact?qr=true'
-      : `${window.location.origin}/contact?qr=true`);
+    : 'https://www.vriendscoffeshop.com/register';
   
   console.log('🔍 ContactPage: destinationUrl depuis state:', destinationUrl);
   console.log('🔍 ContactPage: loadingUrl:', loadingUrl);
@@ -347,9 +348,9 @@ const ContactPage = () => {
           <div style={styles.leftCol}>
             <div style={styles.success}>
               <div style={styles.successIcon}>✓</div>
-              <div style={styles.successTitle}>Message envoyé !</div>
+              <div style={styles.successTitle}>{t('messageSent')}</div>
               <div style={styles.successText}>
-                Merci, votre message a bien été envoyé. Nous vous répondrons dans les plus brefs délais.
+                {t('messageSuccess')}
               </div>
               <button
                 onClick={() => {
@@ -362,7 +363,7 @@ const ContactPage = () => {
                 }}
                 style={styles.button}
               >
-                Envoyer un autre message
+                {t('sendAnother')}
               </button>
             </div>
           </div>
@@ -376,11 +377,11 @@ const ContactPage = () => {
       <div style={styles.container}>
         <div style={styles.leftCol}>
           <div style={styles.eyebrow}>Vriends Poperinge</div>
-          <h1 style={styles.title}>Contactez-nous</h1>
+          <h1 style={styles.title}>{t('contactUs')}</h1>
           {error && <div style={styles.error}>{error}</div>}
           <form onSubmit={handleSubmit}>
             <div style={styles.formGroup}>
-              <label style={styles.label}>Nom *</label>
+              <label style={styles.label}>{t('name')} {t('required')}</label>
               <input
                 type="text"
                 value={name}
@@ -390,7 +391,7 @@ const ContactPage = () => {
               />
             </div>
             <div style={styles.formGroup}>
-              <label style={styles.label}>Email *</label>
+              <label style={styles.label}>{t('email')} {t('required')}</label>
               <input
                 type="email"
                 value={email}
@@ -400,7 +401,7 @@ const ContactPage = () => {
               />
             </div>
             <div style={styles.formGroup}>
-              <label style={styles.label}>Téléphone</label>
+              <label style={styles.label}>{t('phone')}</label>
               <input
                 type="tel"
                 value={phone}
@@ -409,7 +410,7 @@ const ContactPage = () => {
               />
             </div>
             <div style={styles.formGroup}>
-              <label style={styles.label}>Message *</label>
+              <label style={styles.label}>{t('message')} {t('required')}</label>
               <textarea
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
@@ -426,11 +427,11 @@ const ContactPage = () => {
                 style={{ width: '18px', height: '18px', cursor: 'pointer' }}
               />
               <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.9rem', color: '#1C1C1C' }}>
-                J'accepte d'être recontacté(e) par Vriends Poperinge (RGPD)
+                {t('consent')}
               </label>
             </div>
             <button type="submit" disabled={loading} style={styles.button}>
-              {loading ? 'Envoi...' : 'Envoyer le message'}
+              {loading ? t('sending') : t('send')}
             </button>
           </form>
         </div>
@@ -438,25 +439,25 @@ const ContactPage = () => {
         <div style={styles.rightCol}>
           <div style={styles.qrCard}>
             <img src={qrCodeUrl} alt="QR Code" style={styles.qrImage} />
-            <div style={styles.qrText}>Scanner pour accéder au formulaire</div>
+            <div style={styles.qrText}>{t('scanQR')}</div>
             <div style={styles.qrUrl}>{displayUrl}</div>
             <a href={qrCodeUrl} download="qr-code-vriends.png" style={styles.downloadButton}>
-              ↓ Télécharger le QR Code
+              {t('downloadQR')}
             </a>
           </div>
 
           <div style={styles.infoCard}>
             <div style={styles.infoItem}>
               <div style={styles.infoIcon}>📍</div>
-              <div>Rue de la Station, Poperinge</div>
+              <div>{t('address')}</div>
             </div>
             <div style={styles.infoItem}>
               <div style={styles.infoIcon}>⏰</div>
-              <div>Lun–Ven 7h30–17h · Sam–Dim 8h–15h</div>
+              <div>{t('hours')}</div>
             </div>
             <div style={styles.infoItem}>
               <div style={styles.infoIcon}>✉️</div>
-              <div>info@vriendspoperinge.be</div>
+              <div>{t('emailContact')}</div>
             </div>
           </div>
         </div>

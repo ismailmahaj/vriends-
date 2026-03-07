@@ -2,8 +2,10 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { login } from '../services/authService';
+import { useLanguage } from '../context/LanguageContext';
 
 const LoginPage = () => {
+  const { t } = useLanguage();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -21,7 +23,7 @@ const LoginPage = () => {
       authLogin(response.user, response.token);
       navigate(response.user.role === 'admin' ? '/dashboard' : '/');
     } catch (err) {
-      setError(err.response?.data?.error || 'Erreur de connexion');
+      setError(err.response?.data?.error || t('loginError'));
     } finally {
       setLoading(false);
     }
@@ -122,12 +124,12 @@ const LoginPage = () => {
       <div style={styles.card}>
         <div style={styles.header}>
           <div style={styles.logo}>Vriends <span style={{ fontStyle: 'italic', fontWeight: 300 }}>Poperinge</span></div>
-          <h2 style={styles.title}>Connexion</h2>
+          <h2 style={styles.title}>{t('loginTitle')}</h2>
         </div>
         {error && <div style={styles.error}>{error}</div>}
         <form onSubmit={handleSubmit}>
           <div style={styles.formGroup}>
-            <label style={styles.label}>Email</label>
+            <label style={styles.label}>{t('email')}</label>
             <input
               type="email"
               value={email}
@@ -137,7 +139,7 @@ const LoginPage = () => {
             />
           </div>
           <div style={styles.formGroup}>
-            <label style={styles.label}>Mot de passe</label>
+            <label style={styles.label}>{t('passwordLabel')}</label>
             <input
               type="password"
               value={password}
@@ -147,11 +149,11 @@ const LoginPage = () => {
             />
           </div>
           <button type="submit" disabled={loading} style={styles.button}>
-            {loading ? 'Connexion...' : 'Se connecter'}
+            {loading ? t('logging') : t('loginButton')}
           </button>
         </form>
         <div style={styles.link}>
-          Pas encore de compte ? <Link to="/register" style={styles.linkA}>Créer un compte</Link>
+          {t('noAccount')} <Link to="/register" style={styles.linkA}>{t('createAccount')}</Link>
         </div>
       </div>
     </div>

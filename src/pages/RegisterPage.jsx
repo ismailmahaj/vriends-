@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { register } from '../services/authService';
+import { useLanguage } from '../context/LanguageContext';
 
 const RegisterPage = () => {
+  const { t } = useLanguage();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -50,12 +52,12 @@ const RegisterPage = () => {
     setError('');
 
     if (password.length < 8) {
-      setError('Le mot de passe doit contenir au moins 8 caractères');
+      setError(t('passwordMinLength'));
       return;
     }
 
     if (password !== confirmPassword) {
-      setError('Les mots de passe ne correspondent pas');
+      setError(t('passwordsDontMatch'));
       return;
     }
 
@@ -434,7 +436,7 @@ const RegisterPage = () => {
         <div style={styles.card}>
           <div style={styles.success}>
             <div style={{ fontSize: '1.2rem', marginBottom: '0.5rem' }}>✓</div>
-            <div>Compte créé ! Vous pouvez vous connecter.</div>
+            <div>{t('accountCreated')}</div>
           </div>
         </div>
       </div>
@@ -450,9 +452,9 @@ const RegisterPage = () => {
         <div style={styles.bannerContent} className="banner-content">
           <div style={styles.bannerIcon}>🍪</div>
           <div style={styles.bannerText}>
-            <div style={styles.bannerTitle}>🎉 Offre spéciale pour Poperinge</div>
+            <div style={styles.bannerTitle}>🎉 {t('specialOffer')}</div>
             <div style={styles.bannerSubtitle}>
-              Les habitants de Poperinge reçoivent -10% sur leur commande chez Vriends.
+              {t('localOfferText')}
             </div>
           </div>
         </div>
@@ -464,17 +466,16 @@ const RegisterPage = () => {
         <div style={styles.popup} onClick={handleClosePopup}>
           <div style={styles.popupContent} onClick={(e) => e.stopPropagation()}>
             <div style={styles.popupIcon}>🍪</div>
-            <h2 style={styles.popupTitle}>Offre locale Vriends</h2>
+            <h2 style={styles.popupTitle}>{t('localOffer')}</h2>
             <p style={styles.popupText}>
-              Tu habites à Poperinge ?<br />
-              Profite de -10% de réduction sur ta commande.
+              {t('localOfferText')}
             </p>
             <div style={styles.popupButtons}>
               <button
                 style={{ ...styles.popupButton, ...styles.popupButtonPrimary }}
                 onClick={handleClosePopup}
               >
-                S'inscrire
+                {t('registerButton')}
               </button>
               <button
                 style={{ ...styles.popupButton, ...styles.popupButtonSecondary }}
@@ -493,7 +494,7 @@ const RegisterPage = () => {
                 }}
                 onClick={handleDontShowAgain}
               >
-                Ne plus afficher
+                {t('dontShowAgain')}
               </button>
             </div>
           </div>
@@ -507,7 +508,7 @@ const RegisterPage = () => {
               Vriends <span style={{ fontStyle: 'italic', fontWeight: 300 }}>Poperinge</span>
             </div>
             <h2 style={styles.title}>
-              Inscription
+              {t('register')}
               {localStatus && (
                 <span style={styles.discountBadge}>
                   🏷 -10% Poperinge
@@ -523,14 +524,14 @@ const RegisterPage = () => {
             <div style={styles.discountMessage}>
               <div style={styles.discountMessageIcon}>🎉</div>
               <div style={styles.discountMessageText}>
-                Trop bien ! Tu bénéficies de -10% de réduction réservée aux habitants de Poperinge.
+                {t('discountMessage')}
               </div>
             </div>
           )}
 
           <form onSubmit={handleSubmit}>
             <div style={styles.formGroup}>
-              <label style={styles.label}>Nom complet</label>
+              <label style={styles.label}>{t('fullName')}</label>
               <input
                 type="text"
                 value={name}
@@ -542,7 +543,7 @@ const RegisterPage = () => {
             </div>
             
             <div style={styles.formGroup}>
-              <label style={styles.label}>Email</label>
+              <label style={styles.label}>{t('email')}</label>
               <input
                 type="email"
                 value={email}
@@ -554,7 +555,7 @@ const RegisterPage = () => {
             </div>
             
             <div style={styles.formGroup}>
-              <label style={styles.label}>Adresse</label>
+              <label style={styles.label}>{t('addressField')}</label>
               <input
                 type="text"
                 value={address}
@@ -566,7 +567,7 @@ const RegisterPage = () => {
             </div>
             
             <div style={styles.formGroup}>
-              <label style={styles.label}>Ville</label>
+              <label style={styles.label}>{t('city')}</label>
               <input
                 type="text"
                 value={city}
@@ -578,7 +579,7 @@ const RegisterPage = () => {
             </div>
             
             <div style={styles.formGroup}>
-              <label style={styles.label}>Code postal</label>
+              <label style={styles.label}>{t('postalCode')}</label>
               <input
                 type="text"
                 value={postalCode}
@@ -591,7 +592,7 @@ const RegisterPage = () => {
             </div>
             
             <div style={styles.formGroup}>
-              <label style={styles.label}>Mot de passe</label>
+              <label style={styles.label}>{t('password')}</label>
               <input
                 type="password"
                 value={password}
@@ -604,7 +605,7 @@ const RegisterPage = () => {
             </div>
             
             <div style={styles.formGroup}>
-              <label style={styles.label}>Confirmer mot de passe</label>
+              <label style={styles.label}>{t('confirmPassword')}</label>
               <input
                 type="password"
                 value={confirmPassword}
@@ -623,17 +624,17 @@ const RegisterPage = () => {
                 style={styles.checkboxInput}
               />
               <label style={{ ...styles.label, margin: 0, textTransform: 'none', fontSize: '0.9rem' }}>
-                Je suis résident(e) de Poperinge
+                {t('localResident')}
               </label>
             </div>
             
             <button type="submit" disabled={loading} style={styles.button} className="submit-button">
-              {loading ? 'Inscription...' : "S'inscrire"}
+              {loading ? t('registering') : t('registerButton')}
             </button>
           </form>
           
           <div style={styles.link}>
-            Déjà un compte ? <Link to="/login" style={styles.linkA}>Se connecter</Link>
+            {t('alreadyAccount')} <Link to="/login" style={styles.linkA}>{t('login')}</Link>
           </div>
         </div>
       </div>
