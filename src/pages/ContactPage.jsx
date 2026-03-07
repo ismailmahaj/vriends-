@@ -54,20 +54,39 @@ const ContactPage = () => {
   // URL du QR code : fixe par défaut avec l'URL de production Railway
   // Vous pouvez définir VITE_QR_CODE_URL dans Railway pour utiliser un autre domaine
   // Exemple : VITE_QR_CODE_URL=https://vriends-poperinge.com/contact?qr=true
+  // ⚠️ IMPORTANT : Les variables Vite sont injectées au BUILD. Si vous modifiez VITE_QR_CODE_URL,
+  // vous devez REDÉPLOYER le frontend pour que le changement prenne effet.
   const getContactUrl = () => {
-    // Si une variable d'environnement est définie, l'utiliser
-    if (import.meta.env.VITE_QR_CODE_URL) {
-      return import.meta.env.VITE_QR_CODE_URL;
+    const envUrl = import.meta.env.VITE_QR_CODE_URL;
+    
+    // Log pour déboguer
+    console.log('🔍 QR Code URL - Variables:', {
+      'VITE_QR_CODE_URL': envUrl || 'non définie',
+      'window.location.origin': window.location.origin,
+      'hostname': window.location.hostname
+    });
+    
+    // Si une variable d'environnement est définie et non vide, l'utiliser en priorité
+    if (envUrl && envUrl.trim() !== '') {
+      console.log('✅ Utilisation de VITE_QR_CODE_URL:', envUrl);
+      return envUrl.trim();
     }
+    
     // En production (pas localhost), utiliser l'URL Railway fixe
     if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-      return 'https://vriends-frontend-production.up.railway.app/contact?qr=true';
+      const defaultUrl = 'https://vriends-frontend-production.up.railway.app/contact?qr=true';
+      console.log('✅ Utilisation de l\'URL Railway par défaut:', defaultUrl);
+      return defaultUrl;
     }
+    
     // En développement local, utiliser l'URL actuelle
-    return `${window.location.origin}/contact?qr=true`;
+    const localUrl = `${window.location.origin}/contact?qr=true`;
+    console.log('✅ Utilisation de l\'URL locale:', localUrl);
+    return localUrl;
   };
   
   const contactUrl = getContactUrl();
+  console.log('📱 URL finale du QR Code:', contactUrl);
   const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(contactUrl)}&bgcolor=F7F5F2&color=3A2E25&margin=12`;
 
   const styles = {

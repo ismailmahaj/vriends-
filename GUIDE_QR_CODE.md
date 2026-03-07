@@ -33,6 +33,9 @@ Pour **fixer l'URL du QR code** même si le domaine change :
      ```
 
 3. **Redéployer** le frontend (les variables Vite sont injectées au build)
+   ⚠️ **CRUCIAL** : Vous devez **redéployer** le frontend après avoir modifié `VITE_QR_CODE_URL` !
+   - Railway → Service frontend → **Deployments** → **Redeploy**
+   - Attendre 2-3 minutes que le build se termine
 
 4. **Télécharger** le nouveau QR code depuis la page Contact
 
@@ -84,9 +87,10 @@ VITE_QR_CODE_URL=https://vriends-frontend-production.up.railway.app/contact?qr=t
 ## ⚠️ Note importante
 
 - Les variables Vite (`VITE_*`) sont **injectées au moment du build**
-- Si vous modifiez `VITE_QR_CODE_URL`, vous devez **redéployer** le frontend
+- ⚠️ **CRUCIAL** : Si vous modifiez `VITE_QR_CODE_URL`, vous devez **redéployer** le frontend pour que le changement prenne effet
 - Le QR code téléchargé contient l'URL encodée dans l'image
 - Une fois imprimé, le QR code ne changera pas automatiquement
+- Si le QR code ne change pas après modification de la variable, consultez `FIX_QR_CODE_URL.md`
 
 ## 🎯 Résumé
 
