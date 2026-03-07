@@ -125,11 +125,20 @@ const seedData = async () => {
     // Initialiser les settings par défaut
     const qrUrlExists = db.prepare('SELECT id FROM settings WHERE key = ?').get('qr_code_url');
     if (!qrUrlExists) {
+      const defaultUrl = 'https://vriends-frontend-production.up.railway.app/contact?qr=true';
       db.prepare(`
         INSERT INTO settings (key, value)
         VALUES (?, ?)
-      `).run('qr_code_url', 'https://vriends-frontend-production.up.railway.app/contact?qr=true');
+      `).run('qr_code_url', defaultUrl);
       console.log('✅ Setting qr_code_url initialisé');
+      
+      // Générer et stocker l'URL de l'image QR code
+      const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(defaultUrl)}&bgcolor=F7F5F2&color=3A2E25&margin=12`;
+      db.prepare(`
+        INSERT INTO settings (key, value)
+        VALUES (?, ?)
+      `).run('qr_code_image_url', qrImageUrl);
+      console.log('✅ Setting qr_code_image_url initialisé');
     }
   } catch (error) {
     console.error('❌ Erreur lors du seed:', error);

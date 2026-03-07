@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { submitContact } from '../services/contactsService';
 import { trackQRScan } from '../services/qrService';
-import { getQRCodeUrl } from '../services/settingsService';
+import { getQRCodeImageUrl } from '../services/settingsService';
 
 const ContactPage = () => {
   const [searchParams] = useSearchParams();
@@ -14,7 +14,7 @@ const ContactPage = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [qrCodeUrlFromApi, setQrCodeUrlFromApi] = useState(null);
+  const [qrCodeImageUrl, setQrCodeImageUrl] = useState(null);
 
   useEffect(() => {
     // Détecter si l'utilisateur arrive via QR code
@@ -26,18 +26,18 @@ const ContactPage = () => {
       trackQRScan();
     }
 
-    // Charger l'URL du QR code depuis l'API
-    const loadQRCodeUrl = async () => {
+    // Charger l'URL de l'image QR code depuis l'API (fixe, ne change jamais)
+    const loadQRCodeImage = async () => {
       try {
-        const url = await getQRCodeUrl();
-        if (url) {
-          setQrCodeUrlFromApi(url);
+        const imageUrl = await getQRCodeImageUrl();
+        if (imageUrl) {
+          setQrCodeImageUrl(imageUrl);
         }
       } catch (error) {
-        console.error('Erreur chargement URL QR code:', error);
+        console.error('Erreur chargement image QR code:', error);
       }
     };
-    loadQRCodeUrl();
+    loadQRCodeImage();
   }, [searchParams]);
 
   const handleSubmit = async (e) => {
@@ -66,50 +66,30 @@ const ContactPage = () => {
     }
   };
 
-  // URL du QR code : priorité à l'API, puis variable d'environnement, puis défaut
-  const getContactUrl = () => {
-    // 1. Priorité : URL depuis l'API (configurable dans le dashboard)
-    if (qrCodeUrlFromApi) {
-      console.log('✅ Utilisation de l\'URL depuis l\'API:', qrCodeUrlFromApi);
-      return qrCodeUrlFromApi;
-    }
-
-    // 2. Fallback : Variable d'environnement Vite
-    const envUrl = import.meta.env.VITE_QR_CODE_URL;
-    if (envUrl) {
-      let cleanUrl = envUrl.trim();
-      if ((cleanUrl.startsWith('"') && cleanUrl.endsWith('"')) || 
-          (cleanUrl.startsWith("'") && cleanUrl.endsWith("'"))) {
-        cleanUrl = cleanUrl.slice(1, -1).trim();
-      }
-      if (cleanUrl && cleanUrl !== '') {
-        if (!cleanUrl.includes('/contact')) {
-          if (cleanUrl.endsWith('/')) {
-            cleanUrl = cleanUrl + 'contact?qr=true';
-          } else {
-            cleanUrl = cleanUrl + '/contact?qr=true';
-          }
-        }
-        console.log('✅ Utilisation de VITE_QR_CODE_URL:', cleanUrl);
-        return cleanUrl;
-      }
+  // URL de l'image QR code : utiliser celle stockée en base (fixe, ne change jamais)
+  // Si l'image n'est pas encore chargée, utiliser un fallback temporaire
+  const getQRCodeImageUrlValue = () => {
+    if (qrCodeImageUrl) {
+      console.log('✅ Utilisation de l\'image QR code fixe depuis l\'API');
+      return qrCodeImageUrl;
     }
     
-    // 3. Fallback : URL Railway par défaut en production
-    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-      const defaultUrl = 'https://vriends-frontend-production.up.railway.app/contact?qr=true';
-      console.log('✅ Utilisation de l\'URL Railway par défaut:', defaultUrl);
-      return defaultUrl;
-    }
+    // Fallback temporaire pendant le chargement (utiliser l'URL Railway par défaut)
+    const fallbackUrl = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+      ? 'https://vriends-frontend-production.up.railway.app/contact?qr=true'
+      : `${window.location.origin}/contact?qr=true`;
     
-    // 4. Fallback : URL locale en développement
-    const localUrl = `${window.location.origin}/contact?qr=true`;
-    console.log('✅ Utilisation de l\'URL locale:', localUrl);
-    return localUrl;
+    return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(fallbackUrl)}&bgcolor=F7F5F2&color=3A2E25&margin=12`;
   };
   
-  const contactUrl = getContactUrl();
-  const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(contactUrl)}&bgcolor=F7F5F2&color=3A2E25&margin=12`;
+  const qrCodeUrl = getQRCodeImageUrlValue();
+  
+  // URL de destination pour l'affichage (peut changer, mais le QR code reste fixe)
+  const contactUrl = qrCodeImageUrl 
+    ? 'URL configurée dans le dashboard' 
+    : (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+      ? 'https://vriends-frontend-production.up.railway.app/contact?qr=true'
+      : `${window.location.origin}/contact?qr=true`);
 
   const styles = {
     page: {
