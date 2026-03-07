@@ -33,13 +33,19 @@ const DashboardPage = () => {
         setQrStats(stats);
         
         // Charger l'URL du QR code
+        console.log('🔍 Dashboard: Chargement URL QR code...');
         const url = await getSetting('qr_code_url');
+        console.log('🔍 Dashboard: URL récupérée:', url);
         if (url) {
           setQrCodeUrl(url);
           setQrCodeUrlTemp(url);
+          console.log('✅ Dashboard: URL chargée avec succès');
+        } else {
+          console.warn('⚠️ Dashboard: Aucune URL trouvée');
         }
       } catch (error) {
-        console.error('Erreur chargement données QR:', error);
+        console.error('❌ Dashboard: Erreur chargement données QR:', error);
+        console.error('❌ Dashboard: Détails:', error.response?.data || error.message);
       }
     };
     loadQRData();
@@ -442,9 +448,22 @@ const DashboardPage = () => {
                               const response = await updateSetting('qr_code_url', urlToSave);
                               console.log('🔍 Dashboard: Réponse API:', response);
                               
-                              setQrCodeUrl(urlToSave);
-                              setQrCodeUrlEditing(false);
-                              alert(`✅ URL du QR Code mise à jour avec succès !\n\nL'URL sauvegardée est : ${urlToSave}\n\nLes scans du QR code redirigeront maintenant vers cette URL.`);
+                              // Recharger l'URL depuis l'API pour vérifier qu'elle est bien sauvegardée
+                              const reloadedUrl = await getSetting('qr_code_url');
+                              console.log('🔍 Dashboard: URL rechargée depuis API:', reloadedUrl);
+                              
+                              if (reloadedUrl && reloadedUrl === urlToSave) {
+                                setQrCodeUrl(reloadedUrl);
+                                setQrCodeUrlTemp(reloadedUrl);
+                                setQrCodeUrlEditing(false);
+                                alert(`✅ URL du QR Code mise à jour avec succès !\n\nL'URL sauvegardée est : ${reloadedUrl}\n\nLes scans du QR code redirigeront maintenant vers cette URL.`);
+                              } else {
+                                console.warn('⚠️ Dashboard: L\'URL rechargée ne correspond pas à celle sauvegardée');
+                                setQrCodeUrl(urlToSave);
+                                setQrCodeUrlTemp(urlToSave);
+                                setQrCodeUrlEditing(false);
+                                alert(`✅ URL du QR Code mise à jour !\n\nL'URL sauvegardée est : ${urlToSave}\n\nNote: Vérifiez que l'URL est correctement sauvegardée.`);
+                              }
                             } catch (error) {
                               console.error('❌ Dashboard: Erreur mise à jour URL QR code:', error);
                               console.error('❌ Dashboard: Détails erreur:', error.response?.data || error.message);

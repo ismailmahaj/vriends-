@@ -49,6 +49,10 @@ const updateSetting = (req, res) => {
         WHERE key = ?
       `).run(value, key);
       console.log(`✅ Setting ${key} mise à jour: ${value}`);
+      
+      // Vérifier que la mise à jour a bien fonctionné
+      const updated = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
+      console.log(`🔍 Setting ${key} vérifiée après mise à jour: ${updated.value}`);
     } else {
       // Créer
       db.prepare(`
@@ -63,7 +67,12 @@ const updateSetting = (req, res) => {
     // La redirection se fera automatiquement vers la nouvelle URL
     // Ainsi, même si l'URL change, le QR code imprimé continue de fonctionner
 
-    res.json({ success: true, key, value });
+    // Récupérer la valeur mise à jour depuis la base de données pour la retourner
+    const updatedSetting = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
+    const finalValue = updatedSetting ? updatedSetting.value : value;
+    
+    console.log(`✅ Réponse API: Setting ${key} = ${finalValue}`);
+    res.json({ success: true, key, value: finalValue });
   } catch (error) {
     console.error('❌ Erreur mise à jour setting:', error);
     res.status(500).json({ error: 'Erreur serveur', details: error.message });

@@ -7,10 +7,30 @@ export const getSettings = async () => {
   return response.data;
 };
 
-// Récupérer une setting spécifique
+// Récupérer une setting spécifique (utilise axios directement pour les settings publiques)
 export const getSetting = async (key) => {
-  const response = await api.get(`/settings?key=${key}`);
-  return response.data.value;
+  try {
+    // Pour qr_code_url et qr_code_image_url, utiliser axios directement (public)
+    if (key === 'qr_code_url' || key === 'qr_code_image_url') {
+      const getApiUrl = () => {
+        if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+          return 'https://vriends-backend-production.up.railway.app/api';
+        }
+        return import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+      };
+      
+      const baseURL = getApiUrl();
+      const response = await axios.get(`${baseURL}/settings?key=${key}`);
+      return response.data.value;
+    }
+    
+    // Pour les autres settings, utiliser api (nécessite token)
+    const response = await api.get(`/settings?key=${key}`);
+    return response.data.value;
+  } catch (error) {
+    console.error(`Erreur récupération setting ${key}:`, error);
+    throw error;
+  }
 };
 
 // Mettre à jour une setting (admin seulement)
