@@ -9,8 +9,10 @@ const getSettings = (req, res) => {
       // Récupérer une setting spécifique
       const setting = db.prepare('SELECT * FROM settings WHERE key = ?').get(key);
       if (!setting) {
+        console.log(`⚠️ Setting ${key} non trouvée`);
         return res.status(404).json({ error: 'Setting non trouvée' });
       }
+      console.log(`✅ Setting ${key} récupérée: ${setting.value}`);
       res.json({ key: setting.key, value: setting.value });
     } else {
       // Récupérer toutes les settings

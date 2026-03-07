@@ -12,25 +12,34 @@ const QRRedirectPage = () => {
       trackQRScan();
 
       try {
+        console.log('🔍 QRRedirectPage: Chargement de l\'URL depuis l\'API...');
+        
         // Charger l'URL depuis l'API
         const targetUrl = await getQRCodeUrl();
+        
+        console.log('🔍 QRRedirectPage: URL récupérée:', targetUrl);
         
         if (targetUrl) {
           // Si l'URL est complète (avec https://), rediriger vers cette URL
           if (targetUrl.startsWith('http://') || targetUrl.startsWith('https://')) {
+            console.log('✅ QRRedirectPage: Redirection vers URL externe:', targetUrl);
             window.location.href = targetUrl;
+            return; // Important : arrêter l'exécution après redirection
           } else {
             // Sinon, c'est un chemin relatif, utiliser navigate
-            navigate(targetUrl);
+            console.log('✅ QRRedirectPage: Redirection vers chemin relatif:', targetUrl);
+            navigate(targetUrl, { replace: true });
+            return;
           }
         } else {
           // Fallback : rediriger vers /contact?qr=true
-          navigate('/contact?qr=true');
+          console.log('⚠️ QRRedirectPage: Aucune URL trouvée, redirection vers /contact?qr=true');
+          navigate('/contact?qr=true', { replace: true });
         }
       } catch (error) {
-        console.error('Erreur redirection QR code:', error);
+        console.error('❌ QRRedirectPage: Erreur redirection QR code:', error);
         // Fallback en cas d'erreur
-        navigate('/contact?qr=true');
+        navigate('/contact?qr=true', { replace: true });
       }
     };
 
