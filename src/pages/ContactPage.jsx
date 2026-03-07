@@ -51,15 +51,19 @@ const ContactPage = () => {
     }
   };
 
-  // URL du QR code : utilise une variable d'environnement ou l'URL actuelle
-  // Vous pouvez définir VITE_QR_CODE_URL dans Railway pour fixer l'URL du QR code
+  // URL du QR code : fixe par défaut avec l'URL de production Railway
+  // Vous pouvez définir VITE_QR_CODE_URL dans Railway pour utiliser un autre domaine
   // Exemple : VITE_QR_CODE_URL=https://vriends-poperinge.com/contact?qr=true
   const getContactUrl = () => {
-    // Si une variable d'environnement est définie, l'utiliser (pour fixer l'URL même si le domaine change)
+    // Si une variable d'environnement est définie, l'utiliser
     if (import.meta.env.VITE_QR_CODE_URL) {
       return import.meta.env.VITE_QR_CODE_URL;
     }
-    // Sinon, utiliser l'URL actuelle (dynamique)
+    // En production (pas localhost), utiliser l'URL Railway fixe
+    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      return 'https://vriends-frontend-production.up.railway.app/contact?qr=true';
+    }
+    // En développement local, utiliser l'URL actuelle
     return `${window.location.origin}/contact?qr=true`;
   };
   
