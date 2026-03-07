@@ -59,17 +59,39 @@ const ContactPage = () => {
   const getContactUrl = () => {
     const envUrl = import.meta.env.VITE_QR_CODE_URL;
     
-    // Log pour déboguer
-    console.log('🔍 QR Code URL - Variables:', {
-      'VITE_QR_CODE_URL': envUrl || 'non définie',
+    // Log pour déboguer - afficher toutes les variables Vite disponibles
+    console.log('🔍 QR Code URL - Debug:', {
+      'VITE_QR_CODE_URL (raw)': envUrl,
+      'VITE_QR_CODE_URL (type)': typeof envUrl,
+      'VITE_QR_CODE_URL (trimmed)': envUrl ? envUrl.trim() : 'undefined',
       'window.location.origin': window.location.origin,
-      'hostname': window.location.hostname
+      'hostname': window.location.hostname,
+      'Toutes les variables VITE_*': Object.keys(import.meta.env).filter(k => k.startsWith('VITE_'))
     });
     
     // Si une variable d'environnement est définie et non vide, l'utiliser en priorité
-    if (envUrl && envUrl.trim() !== '') {
-      console.log('✅ Utilisation de VITE_QR_CODE_URL:', envUrl);
-      return envUrl.trim();
+    // Nettoyer la valeur (enlever les guillemets si présents)
+    if (envUrl) {
+      let cleanUrl = envUrl.trim();
+      // Enlever les guillemets au début et à la fin si présents
+      if ((cleanUrl.startsWith('"') && cleanUrl.endsWith('"')) || 
+          (cleanUrl.startsWith("'") && cleanUrl.endsWith("'"))) {
+        cleanUrl = cleanUrl.slice(1, -1).trim();
+      }
+      
+      // Vérifier que l'URL n'est pas vide après nettoyage
+      if (cleanUrl && cleanUrl !== '') {
+        // Si l'URL ne se termine pas par /contact?qr=true, l'ajouter si c'est juste un domaine
+        if (!cleanUrl.includes('/contact')) {
+          if (cleanUrl.endsWith('/')) {
+            cleanUrl = cleanUrl + 'contact?qr=true';
+          } else {
+            cleanUrl = cleanUrl + '/contact?qr=true';
+          }
+        }
+        console.log('✅ Utilisation de VITE_QR_CODE_URL (nettoyée):', cleanUrl);
+        return cleanUrl;
+      }
     }
     
     // En production (pas localhost), utiliser l'URL Railway fixe
