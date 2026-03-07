@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { submitContact } from '../services/contactsService';
 import { trackQRScan } from '../services/qrService';
-import { getQRCodeImageUrl } from '../services/settingsService';
+import { getQRCodeImageUrl, getQRCodeUrl } from '../services/settingsService';
 
 const ContactPage = () => {
   const [searchParams] = useSearchParams();
@@ -15,6 +15,7 @@ const ContactPage = () => {
   const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   const [qrCodeImageUrl, setQrCodeImageUrl] = useState(null);
+  const [destinationUrl, setDestinationUrl] = useState(null);
 
   useEffect(() => {
     // Détecter si l'utilisateur arrive via QR code
@@ -29,15 +30,45 @@ const ContactPage = () => {
     // Charger l'URL de l'image QR code depuis l'API (fixe, ne change jamais)
     const loadQRCodeImage = async () => {
       try {
+        console.log('🔍 ContactPage: Chargement de l\'image QR code depuis l\'API...');
         const imageUrl = await getQRCodeImageUrl();
+        console.log('🔍 ContactPage: Image QR code récupérée:', imageUrl);
+        
         if (imageUrl) {
-          setQrCodeImageUrl(imageUrl);
+          // Vérifier que l'image pointe vers /qr-redirect
+          if (imageUrl.includes('/qr-redirect')) {
+            console.log('✅ ContactPage: Image QR code pointe vers /qr-redirect');
+            setQrCodeImageUrl(imageUrl);
+          } else {
+            console.warn('⚠️ ContactPage: Image QR code ne pointe PAS vers /qr-redirect, utilisation du fallback');
+            // Ne pas utiliser cette image, utiliser le fallback
+            setQrCodeImageUrl(null);
+          }
+        } else {
+          console.warn('⚠️ ContactPage: Aucune image QR code trouvée, utilisation du fallback');
         }
       } catch (error) {
-        console.error('Erreur chargement image QR code:', error);
+        console.error('❌ ContactPage: Erreur chargement image QR code:', error);
+        console.error('❌ ContactPage: Détails:', error.response?.data || error.message);
       }
     };
+    
+    // Charger l'URL de destination pour l'affichage (celle configurée dans le dashboard)
+    const loadDestinationUrl = async () => {
+      try {
+        console.log('🔍 ContactPage: Chargement de l\'URL de destination depuis l\'API...');
+        const url = await getQRCodeUrl();
+        console.log('🔍 ContactPage: URL de destination récupérée:', url);
+        if (url) {
+          setDestinationUrl(url);
+        }
+      } catch (error) {
+        console.error('❌ ContactPage: Erreur chargement URL de destination:', error);
+      }
+    };
+    
     loadQRCodeImage();
+    loadDestinationUrl();
   }, [searchParams]);
 
   const handleSubmit = async (e) => {
@@ -69,25 +100,34 @@ const ContactPage = () => {
   // URL de l'image QR code : utiliser celle stockée en base (fixe, pointe vers /qr-redirect)
   // Cette URL ne changera jamais, même si l'URL de destination change
   const getQRCodeImageUrlValue = () => {
-    if (qrCodeImageUrl) {
-      console.log('✅ Utilisation de l\'image QR code fixe depuis l\'API');
-      return qrCodeImageUrl;
-    }
-    
-    // Fallback temporaire : URL fixe de redirection
-    const fallbackRedirectUrl = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+    // Toujours utiliser l'URL fixe de redirection pour garantir que le QR code pointe vers /qr-redirect
+    const redirectUrl = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
       ? 'https://vriends-frontend-production.up.railway.app/qr-redirect'
       : `${window.location.origin}/qr-redirect`;
     
-    return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(fallbackRedirectUrl)}&bgcolor=F7F5F2&color=3A2E25&margin=12`;
+    const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(redirectUrl)}&bgcolor=F7F5F2&color=3A2E25&margin=12`;
+    
+    console.log('🔍 ContactPage: URL de redirection pour QR code:', redirectUrl);
+    console.log('🔍 ContactPage: URL de l\'image QR code générée:', qrImageUrl);
+    
+    // Si on a une image depuis l'API et qu'elle pointe vers /qr-redirect, l'utiliser
+    if (qrCodeImageUrl && qrCodeImageUrl.includes('/qr-redirect')) {
+      console.log('✅ ContactPage: Utilisation de l\'image QR code depuis l\'API');
+      return qrCodeImageUrl;
+    }
+    
+    // Sinon, utiliser le fallback (généré à la volée, toujours correct)
+    console.log('✅ ContactPage: Utilisation du fallback (QR code généré à la volée)');
+    return qrImageUrl;
   };
   
   const qrCodeUrl = getQRCodeImageUrlValue();
   
-  // URL de destination pour l'affichage (peut changer, mais le QR code reste fixe)
-  const contactUrl = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+  // URL de destination pour l'affichage (celle configurée dans le dashboard)
+  // Si non chargée, afficher l'URL de redirection
+  const displayUrl = destinationUrl || (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
     ? 'https://vriends-frontend-production.up.railway.app/qr-redirect'
-    : `${window.location.origin}/qr-redirect`;
+    : `${window.location.origin}/qr-redirect`);
 
   const styles = {
     page: {
@@ -370,7 +410,7 @@ const ContactPage = () => {
           <div style={styles.qrCard}>
             <img src={qrCodeUrl} alt="QR Code" style={styles.qrImage} />
             <div style={styles.qrText}>Scanner pour accéder au formulaire</div>
-            <div style={styles.qrUrl}>{contactUrl}</div>
+            <div style={styles.qrUrl}>{displayUrl}</div>
             <a href={qrCodeUrl} download="qr-code-vriends.png" style={styles.downloadButton}>
               ↓ Télécharger le QR Code
             </a>
