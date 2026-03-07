@@ -4,6 +4,7 @@ import { getProducts, toggleProduct } from '../services/productsService';
 import { getContacts, markTreated, deleteContact, exportCSV } from '../services/contactsService';
 import { getUsers, exportUsersCSV } from '../services/authService';
 import { getQRStats } from '../services/qrService';
+import { getSetting, updateSetting } from '../services/settingsService';
 
 const DashboardPage = () => {
   const [activeTab, setActiveTab] = useState('orders');
@@ -12,6 +13,10 @@ const DashboardPage = () => {
   const [contacts, setContacts] = useState({ contacts: [], total: 0, newCount: 0 });
   const [users, setUsers] = useState([]);
   const [qrStats, setQrStats] = useState({ total: 0, today: 0, thisWeek: 0, thisMonth: 0 });
+  const [qrCodeUrl, setQrCodeUrl] = useState('');
+  const [qrCodeUrlEditing, setQrCodeUrlEditing] = useState(false);
+  const [qrCodeUrlTemp, setQrCodeUrlTemp] = useState('');
+  const [qrCodeUrlSaving, setQrCodeUrlSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [expandedContact, setExpandedContact] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
@@ -20,17 +25,24 @@ const DashboardPage = () => {
     loadData();
   }, [activeTab]);
 
-  // Charger les stats QR au montage
+  // Charger les stats QR et l'URL du QR code au montage
   useEffect(() => {
-    const loadQRStats = async () => {
+    const loadQRData = async () => {
       try {
         const stats = await getQRStats();
         setQrStats(stats);
+        
+        // Charger l'URL du QR code
+        const url = await getSetting('qr_code_url');
+        if (url) {
+          setQrCodeUrl(url);
+          setQrCodeUrlTemp(url);
+        }
       } catch (error) {
-        console.error('Erreur chargement stats QR:', error);
+        console.error('Erreur chargement données QR:', error);
       }
     };
-    loadQRStats();
+    loadQRData();
   }, []);
 
   const loadData = async () => {
@@ -381,6 +393,113 @@ const DashboardPage = () => {
 
             {activeTab === 'contacts' && (
               <div>
+                {/* Configuration URL QR Code */}
+                <div style={{ marginBottom: '2rem', padding: '1.5rem', background: '#F7F5F2', borderRadius: '2px' }}>
+                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.5rem', color: '#3A2E25', marginBottom: '1rem' }}>
+                    🔗 Configuration QR Code
+                  </div>
+                  <div style={{ fontFamily: "'DM Sans', sans-serif", marginBottom: '1rem' }}>
+                    <label style={{ display: 'block', fontSize: '0.85rem', color: '#1C1C1C', opacity: 0.7, marginBottom: '0.5rem' }}>
+                      URL du QR Code
+                    </label>
+                    {qrCodeUrlEditing ? (
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <input
+                          type="text"
+                          value={qrCodeUrlTemp}
+                          onChange={(e) => setQrCodeUrlTemp(e.target.value)}
+                          style={{
+                            flex: 1,
+                            padding: '0.7rem',
+                            border: '1.5px solid rgba(58,46,37,.2)',
+                            background: '#F7F5F2',
+                            fontFamily: "'DM Sans', sans-serif",
+                            fontSize: '0.9rem'
+                          }}
+                          placeholder="https://votre-domaine.com/contact?qr=true"
+                        />
+                        <button
+                          onClick={async () => {
+                            setQrCodeUrlSaving(true);
+                            try {
+                              await updateSetting('qr_code_url', qrCodeUrlTemp);
+                              setQrCodeUrl(qrCodeUrlTemp);
+                              setQrCodeUrlEditing(false);
+                              alert('✅ URL du QR Code mise à jour avec succès !');
+                            } catch (error) {
+                              console.error('Erreur mise à jour URL QR code:', error);
+                              alert('❌ Erreur lors de la mise à jour');
+                            } finally {
+                              setQrCodeUrlSaving(false);
+                            }
+                          }}
+                          disabled={qrCodeUrlSaving}
+                          style={{
+                            padding: '0.7rem 1.5rem',
+                            background: '#3A2E25',
+                            color: '#F7F5F2',
+                            border: 'none',
+                            fontFamily: "'DM Sans', sans-serif",
+                            fontSize: '0.85rem',
+                            textTransform: 'uppercase',
+                            letterSpacing: '.1em',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {qrCodeUrlSaving ? 'Sauvegarde...' : '✓ Sauvegarder'}
+                        </button>
+                        <button
+                          onClick={() => {
+                            setQrCodeUrlTemp(qrCodeUrl);
+                            setQrCodeUrlEditing(false);
+                          }}
+                          style={{
+                            padding: '0.7rem 1.5rem',
+                            background: 'transparent',
+                            color: '#3A2E25',
+                            border: '1.5px solid #3A2E25',
+                            fontFamily: "'DM Sans', sans-serif",
+                            fontSize: '0.85rem',
+                            textTransform: 'uppercase',
+                            letterSpacing: '.1em',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Annuler
+                        </button>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <div style={{ flex: 1, padding: '0.7rem', background: '#E6DCCB', borderRadius: '2px', fontFamily: "'DM Sans', sans-serif", fontSize: '0.9rem', color: '#1C1C1C' }}>
+                          {qrCodeUrl || 'Non configuré'}
+                        </div>
+                        <button
+                          onClick={() => {
+                            setQrCodeUrlTemp(qrCodeUrl);
+                            setQrCodeUrlEditing(true);
+                          }}
+                          style={{
+                            padding: '0.7rem 1.5rem',
+                            background: '#3A2E25',
+                            color: '#F7F5F2',
+                            border: 'none',
+                            fontFamily: "'DM Sans', sans-serif",
+                            fontSize: '0.85rem',
+                            textTransform: 'uppercase',
+                            letterSpacing: '.1em',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          ✏️ Modifier
+                        </button>
+                      </div>
+                    )}
+                    <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#1C1C1C', opacity: 0.6 }}>
+                      Cette URL sera utilisée pour générer le QR code sur la page Contact
+                    </div>
+                  </div>
+                </div>
+
                 <div style={{ marginBottom: '2rem', padding: '1.5rem', background: '#F7F5F2', borderRadius: '2px' }}>
                   <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.5rem', color: '#3A2E25', marginBottom: '1rem' }}>
                     📱 Statistiques QR Code

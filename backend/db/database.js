@@ -63,6 +63,13 @@ db.exec(`
     user_agent TEXT,
     created_at DATETIME DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS settings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT NOT NULL UNIQUE,
+    value TEXT NOT NULL,
+    updated_at DATETIME DEFAULT (datetime('now'))
+  );
 `);
 
 // Seed initial data
@@ -113,6 +120,16 @@ const seedData = async () => {
       console.log('✅ Produits seed créés');
     } else {
       console.log('ℹ️  Produits existent déjà');
+    }
+
+    // Initialiser les settings par défaut
+    const qrUrlExists = db.prepare('SELECT id FROM settings WHERE key = ?').get('qr_code_url');
+    if (!qrUrlExists) {
+      db.prepare(`
+        INSERT INTO settings (key, value)
+        VALUES (?, ?)
+      `).run('qr_code_url', 'https://vriends-frontend-production.up.railway.app/contact?qr=true');
+      console.log('✅ Setting qr_code_url initialisé');
     }
   } catch (error) {
     console.error('❌ Erreur lors du seed:', error);
