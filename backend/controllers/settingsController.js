@@ -62,10 +62,42 @@ const updateSetting = (req, res) => {
       console.log(`✅ Setting ${key} créée: ${value}`);
     }
 
-    // Si on met à jour qr_code_url, NE PAS régénérer l'image QR code
-    // L'image QR code pointe toujours vers /qr-redirect (URL fixe)
+    // Si on met à jour qr_code_url, s'assurer que l'image QR code pointe vers /qr-redirect
+    // L'image QR code doit toujours pointer vers /qr-redirect (URL fixe)
     // La redirection se fera automatiquement vers la nouvelle URL
-    // Ainsi, même si l'URL change, le QR code imprimé continue de fonctionner
+    if (key === 'qr_code_url') {
+      // Déterminer l'URL de redirection fixe selon l'environnement
+      // En production, utiliser l'URL Railway, en dev utiliser localhost
+      const frontendUrl = process.env.FRONTEND_URL || 'https://vriends-frontend-production.up.railway.app';
+      const qrRedirectUrl = `${frontendUrl}/qr-redirect`;
+      
+      // Vérifier si l'image QR code existe et pointe vers /qr-redirect
+      const imageSetting = db.prepare('SELECT value FROM settings WHERE key = ?').get('qr_code_image_url');
+      const currentImageUrl = imageSetting ? imageSetting.value : null;
+      
+      // Si l'image n'existe pas ou ne pointe pas vers /qr-redirect, la régénérer
+      if (!currentImageUrl || !currentImageUrl.includes('/qr-redirect')) {
+        const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrRedirectUrl)}&bgcolor=F7F5F2&color=3A2E25&margin=12`;
+        
+        const imageExists = db.prepare('SELECT id FROM settings WHERE key = ?').get('qr_code_image_url');
+        if (imageExists) {
+          db.prepare(`
+            UPDATE settings 
+            SET value = ?, updated_at = datetime('now')
+            WHERE key = 'qr_code_image_url'
+          `).run(qrImageUrl);
+          console.log('✅ Image QR code mise à jour pour pointer vers /qr-redirect');
+        } else {
+          db.prepare(`
+            INSERT INTO settings (key, value)
+            VALUES (?, ?)
+          `).run('qr_code_image_url', qrImageUrl);
+          console.log('✅ Image QR code créée pour pointer vers /qr-redirect');
+        }
+      } else {
+        console.log('✅ Image QR code pointe déjà vers /qr-redirect');
+      }
+    }
 
     // Récupérer la valeur mise à jour depuis la base de données pour la retourner
     const updatedSetting = db.prepare('SELECT value FROM settings WHERE key = ?').get(key);
