@@ -56,25 +56,10 @@ const updateSetting = (req, res) => {
       console.log(`✅ Setting ${key} créée: ${value}`);
     }
 
-    // Si on met à jour qr_code_url, régénérer automatiquement l'image QR code
-    if (key === 'qr_code_url') {
-      const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(value)}&bgcolor=F7F5F2&color=3A2E25&margin=12`;
-      const imageExists = db.prepare('SELECT id FROM settings WHERE key = ?').get('qr_code_image_url');
-      if (imageExists) {
-        db.prepare(`
-          UPDATE settings 
-          SET value = ?, updated_at = datetime('now')
-          WHERE key = 'qr_code_image_url'
-        `).run(qrImageUrl);
-        console.log('✅ Image QR code régénérée');
-      } else {
-        db.prepare(`
-          INSERT INTO settings (key, value)
-          VALUES (?, ?)
-        `).run('qr_code_image_url', qrImageUrl);
-        console.log('✅ Image QR code créée');
-      }
-    }
+    // Si on met à jour qr_code_url, NE PAS régénérer l'image QR code
+    // L'image QR code pointe toujours vers /qr-redirect (URL fixe)
+    // La redirection se fera automatiquement vers la nouvelle URL
+    // Ainsi, même si l'URL change, le QR code imprimé continue de fonctionner
 
     res.json({ success: true, key, value });
   } catch (error) {

@@ -125,6 +125,7 @@ const seedData = async () => {
     // Initialiser les settings par défaut
     const qrUrlExists = db.prepare('SELECT id FROM settings WHERE key = ?').get('qr_code_url');
     if (!qrUrlExists) {
+      // URL par défaut : pointe vers la page de redirection fixe
       const defaultUrl = 'https://vriends-frontend-production.up.railway.app/contact?qr=true';
       db.prepare(`
         INSERT INTO settings (key, value)
@@ -132,13 +133,15 @@ const seedData = async () => {
       `).run('qr_code_url', defaultUrl);
       console.log('✅ Setting qr_code_url initialisé');
       
-      // Générer et stocker l'URL de l'image QR code
-      const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(defaultUrl)}&bgcolor=F7F5F2&color=3A2E25&margin=12`;
+      // URL fixe pour le QR code : pointe toujours vers /qr-redirect
+      // Cette URL ne changera jamais, même si qr_code_url change
+      const qrRedirectUrl = 'https://vriends-frontend-production.up.railway.app/qr-redirect';
+      const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(qrRedirectUrl)}&bgcolor=F7F5F2&color=3A2E25&margin=12`;
       db.prepare(`
         INSERT INTO settings (key, value)
         VALUES (?, ?)
       `).run('qr_code_image_url', qrImageUrl);
-      console.log('✅ Setting qr_code_image_url initialisé');
+      console.log('✅ Setting qr_code_image_url initialisé (URL fixe de redirection)');
     }
   } catch (error) {
     console.error('❌ Erreur lors du seed:', error);

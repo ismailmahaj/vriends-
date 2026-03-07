@@ -66,30 +66,28 @@ const ContactPage = () => {
     }
   };
 
-  // URL de l'image QR code : utiliser celle stockée en base (fixe, ne change jamais)
-  // Si l'image n'est pas encore chargée, utiliser un fallback temporaire
+  // URL de l'image QR code : utiliser celle stockée en base (fixe, pointe vers /qr-redirect)
+  // Cette URL ne changera jamais, même si l'URL de destination change
   const getQRCodeImageUrlValue = () => {
     if (qrCodeImageUrl) {
       console.log('✅ Utilisation de l\'image QR code fixe depuis l\'API');
       return qrCodeImageUrl;
     }
     
-    // Fallback temporaire pendant le chargement (utiliser l'URL Railway par défaut)
-    const fallbackUrl = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
-      ? 'https://vriends-frontend-production.up.railway.app/contact?qr=true'
-      : `${window.location.origin}/contact?qr=true`;
+    // Fallback temporaire : URL fixe de redirection
+    const fallbackRedirectUrl = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+      ? 'https://vriends-frontend-production.up.railway.app/qr-redirect'
+      : `${window.location.origin}/qr-redirect`;
     
-    return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(fallbackUrl)}&bgcolor=F7F5F2&color=3A2E25&margin=12`;
+    return `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(fallbackRedirectUrl)}&bgcolor=F7F5F2&color=3A2E25&margin=12`;
   };
   
   const qrCodeUrl = getQRCodeImageUrlValue();
   
   // URL de destination pour l'affichage (peut changer, mais le QR code reste fixe)
-  const contactUrl = qrCodeImageUrl 
-    ? 'URL configurée dans le dashboard' 
-    : (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
-      ? 'https://vriends-frontend-production.up.railway.app/contact?qr=true'
-      : `${window.location.origin}/contact?qr=true`);
+  const contactUrl = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'
+    ? 'https://vriends-frontend-production.up.railway.app/qr-redirect'
+    : `${window.location.origin}/qr-redirect`;
 
   const styles = {
     page: {

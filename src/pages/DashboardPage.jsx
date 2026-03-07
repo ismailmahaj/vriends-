@@ -398,9 +398,17 @@ const DashboardPage = () => {
                   <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.5rem', color: '#3A2E25', marginBottom: '1rem' }}>
                     🔗 Configuration QR Code
                   </div>
+                  <div style={{ fontFamily: "'DM Sans', sans-serif", marginBottom: '1rem', padding: '1rem', background: '#E6DCCB', borderRadius: '4px', marginBottom: '1rem' }}>
+                    <div style={{ fontSize: '0.85rem', color: '#3A2E25', fontWeight: 500, marginBottom: '0.5rem' }}>
+                      ℹ️ Le QR code pointe toujours vers une URL fixe de redirection
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#1C1C1C', opacity: 0.7 }}>
+                      Même si vous changez l'URL ci-dessous, le QR code imprimé continuera de fonctionner et redirigera automatiquement vers la nouvelle URL.
+                    </div>
+                  </div>
                   <div style={{ fontFamily: "'DM Sans', sans-serif", marginBottom: '1rem' }}>
                     <label style={{ display: 'block', fontSize: '0.85rem', color: '#1C1C1C', opacity: 0.7, marginBottom: '0.5rem' }}>
-                      URL du QR Code
+                      URL de destination (où rediriger les scans du QR code)
                     </label>
                     {qrCodeUrlEditing ? (
                       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
@@ -495,7 +503,7 @@ const DashboardPage = () => {
                       </div>
                     )}
                     <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#1C1C1C', opacity: 0.6 }}>
-                      Cette URL sera utilisée pour générer le QR code sur la page Contact
+                      Le QR code pointe vers une URL fixe de redirection. Cette URL est la destination finale où les utilisateurs seront redirigés après avoir scanné le QR code.
                     </div>
                   </div>
                 </div>
