@@ -5,7 +5,7 @@ const {
   eurosToCents,
   CUSTOMER_TYPES,
   DEFAULT_POS_SETTINGS,
-} = require('../../shared/pricingEngine.cjs');
+} = require('../lib/pricingEngine.cjs');
 
 function atTime(hours, minutes) {
   const d = new Date(2026, 7, 9, hours, minutes, 0, 0);

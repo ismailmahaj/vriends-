@@ -39,3 +39,4 @@ npx prisma migrate deploy && node server.js
 
 - SQLite (`backend/db/vriends.db`) n’est plus utilisé par l’API
 - `better-sqlite3` reste uniquement pour le script `db:migrate-from-sqlite`
+- Le pricing engine backend est dans `backend/lib/pricingEngine.cjs` (copie déployable ; le frontend utilise `src/lib/pricingEngine.js`)

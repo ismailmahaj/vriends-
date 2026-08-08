@@ -4,7 +4,7 @@ const {
   eurosToCents,
   DEFAULT_POS_SETTINGS,
   CUSTOMER_TYPES,
-} = require('../../shared/pricingEngine.cjs');
+} = require('../lib/pricingEngine.cjs');
 const { processPayment } = require('../services/paymentProvider');
 
 const VALID_CUSTOMER = new Set(Object.values(CUSTOMER_TYPES));
