@@ -2,20 +2,19 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copier les fichiers package (depuis le contexte backend/)
+# OpenSSL requis par Prisma sur Alpine
+RUN apk add --no-cache openssl libc6-compat
+
 COPY package*.json ./
+COPY prisma ./prisma/
 
-# Installer les dépendances (utiliser npm install si package-lock.json n'est pas synchronisé)
-RUN npm install --production
+RUN npm install
 
-# Copier le reste du code
 COPY . .
 
-# Créer le dossier db s'il n'existe pas
-RUN mkdir -p /app/db
+ENV NODE_ENV=production
 
-# Exposer le port
 EXPOSE 3001
 
-# Démarrer l'application directement avec node
-CMD ["node", "server.js"]
+# Appliquer les migrations puis démarrer
+CMD ["sh", "-c", "npx prisma migrate deploy && node server.js"]
