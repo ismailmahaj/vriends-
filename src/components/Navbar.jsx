@@ -5,7 +5,7 @@ import { useLanguage } from '../context/LanguageContext';
 import { useState } from 'react';
 
 const Navbar = () => {
-  const { user, logout, isAdmin } = useAuth();
+  const { user, logout, isAdmin, isStaff } = useAuth();
   const { itemCount } = useCart();
   const { t, language, changeLanguage } = useLanguage();
   const navigate = useNavigate();
@@ -109,6 +109,7 @@ const Navbar = () => {
           <div style={styles.navLinks}>
             <Link to="/menu" style={styles.navLink}>{t('menu')}</Link>
             <Link to="/contact" style={styles.navLink}>{t('contact')}</Link>
+            {isStaff && <Link to="/pos" style={styles.navLink}>Caisse</Link>}
             {isAdmin && <Link to="/dashboard" style={styles.navLink}>{t('dashboard')}</Link>}
           </div>
         )}
@@ -192,9 +193,11 @@ const Navbar = () => {
         <div style={styles.mobileMenu}>
           <Link to="/menu" style={styles.navLink}>{t('menu')}</Link>
           <Link to="/contact" style={styles.navLink}>{t('contact')}</Link>
+          {isStaff && <Link to="/pos" style={styles.navLink}>Caisse</Link>}
           {isAdmin && <Link to="/dashboard" style={styles.navLink}>{t('dashboard')}</Link>}
         </div>
       )}
+
     </nav>
   );
 };

@@ -35,9 +35,13 @@ export const AuthProvider = ({ children }) => {
   };
 
   const isAdmin = user?.role === 'admin';
+  const isStaff = ['admin', 'manager', 'cashier'].includes(user?.role);
+  const canManagePos = ['admin', 'manager'].includes(user?.role);
 
   return (
-    <AuthContext.Provider value={{ user, token, isAuthenticated, login, logout, isAdmin }}>
+    <AuthContext.Provider
+      value={{ user, token, isAuthenticated, login, logout, isAdmin, isStaff, canManagePos }}
+    >
       {children}
     </AuthContext.Provider>
   );

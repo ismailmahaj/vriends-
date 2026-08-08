@@ -1,5 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { CartProvider } from './context/CartContext';
 import { LanguageProvider } from './context/LanguageContext';
 import Navbar from './components/Navbar';
@@ -13,7 +13,8 @@ import ProfilePage from './pages/ProfilePage';
 import DashboardPage from './pages/DashboardPage';
 import ContactPage from './pages/ContactPage';
 import QRRedirectPage from './pages/QRRedirectPage';
-import { useAuth } from './context/AuthContext';
+import PosPage from './pos/PosPage';
+import PosOrdersPage from './pos/PosOrdersPage';
 
 const AppRoutes = () => {
   const { isAuthenticated } = useAuth();
@@ -63,9 +64,38 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/pos"
+        element={
+          <ProtectedRoute staffOnly>
+            <PosPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/pos/orders"
+        element={
+          <ProtectedRoute staffOnly>
+            <PosOrdersPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route path="/caisse" element={<Navigate to="/pos" replace />} />
     </Routes>
   );
 };
+
+function AppShell() {
+  const location = useLocation();
+  const hideNavbar = location.pathname.startsWith('/pos');
+
+  return (
+    <>
+      {!hideNavbar && <Navbar />}
+      <AppRoutes />
+    </>
+  );
+}
 
 function App() {
   return (
@@ -73,8 +103,7 @@ function App() {
       <AuthProvider>
         <CartProvider>
           <BrowserRouter>
-            <Navbar />
-            <AppRoutes />
+            <AppShell />
           </BrowserRouter>
         </CartProvider>
       </AuthProvider>

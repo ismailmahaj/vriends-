@@ -5,10 +5,12 @@ const express = require('express');
 const cors = require('cors');
 const authRoutes = require('./routes/auth');
 const productsRoutes = require('./routes/products');
+const categoriesRoutes = require('./routes/categories');
 const ordersRoutes = require('./routes/orders');
 const contactsRoutes = require('./routes/contacts');
 const qrRoutes = require('./routes/qr');
 const settingsRoutes = require('./routes/settings');
+const posRoutes = require('./routes/pos');
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -25,10 +27,12 @@ app.use(express.json({ limit: '10kb' }));
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productsRoutes);
+app.use('/api/categories', categoriesRoutes);
 app.use('/api/orders', ordersRoutes);
 app.use('/api/contacts', contactsRoutes);
 app.use('/api/qr', qrRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/pos', posRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {

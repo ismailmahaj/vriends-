@@ -23,4 +23,28 @@ const adminMiddleware = (req, res, next) => {
   next();
 };
 
-module.exports = { authMiddleware, adminMiddleware };
+const STAFF_ROLES = ['admin', 'manager', 'cashier'];
+const MANAGER_ROLES = ['admin', 'manager'];
+
+const staffMiddleware = (req, res, next) => {
+  if (!STAFF_ROLES.includes(req.user.role)) {
+    return res.status(403).json({ error: 'Accès caisse requis' });
+  }
+  next();
+};
+
+const managerMiddleware = (req, res, next) => {
+  if (!MANAGER_ROLES.includes(req.user.role)) {
+    return res.status(403).json({ error: 'Accès manager requis' });
+  }
+  next();
+};
+
+module.exports = {
+  authMiddleware,
+  adminMiddleware,
+  staffMiddleware,
+  managerMiddleware,
+  STAFF_ROLES,
+  MANAGER_ROLES,
+};

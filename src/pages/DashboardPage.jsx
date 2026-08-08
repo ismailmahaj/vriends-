@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react';
 import { getAllOrders, updateStatus } from '../services/ordersService';
-import { getProducts, toggleProduct } from '../services/productsService';
+import { getProducts, toggleProduct, createProduct, updateProduct, deleteProduct } from '../services/productsService';
+import { getCategories, createCategory, deleteCategory } from '../services/categoriesService';
 import { getContacts, markTreated, deleteContact, exportCSV } from '../services/contactsService';
 import { getUsers, exportUsersCSV } from '../services/authService';
 import { getQRStats } from '../services/qrService';
 import { getSetting, updateSetting } from '../services/settingsService';
+import { getPosSettings, updatePosSettings } from '../services/posService';
 import { useLanguage } from '../context/LanguageContext';
+import { Link } from 'react-router-dom';
 
 const DashboardPage = () => {
   const { t } = useLanguage();
@@ -22,6 +25,19 @@ const DashboardPage = () => {
   const [loading, setLoading] = useState(true);
   const [expandedContact, setExpandedContact] = useState(null);
   const [deletingId, setDeletingId] = useState(null);
+  const [posSettings, setPosSettings] = useState(null);
+  const [posSaving, setPosSaving] = useState(false);
+  const [categories, setCategories] = useState([]);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [productForm, setProductForm] = useState({
+    name: '',
+    price: '',
+    category: 'Autres',
+    isFavorite: false,
+    available: true,
+  });
+  const [editingProductId, setEditingProductId] = useState(null);
+  const [productSaving, setProductSaving] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -60,14 +76,21 @@ const DashboardPage = () => {
         const data = await getAllOrders();
         setOrders(data);
       } else if (activeTab === 'products') {
-        const data = await getProducts();
-        setProducts(data);
+        const [prods, cats] = await Promise.all([getProducts(), getCategories()]);
+        setProducts(prods);
+        setCategories(cats);
+        if (cats.length && !productForm.category) {
+          setProductForm((f) => ({ ...f, category: cats[0].name }));
+        }
       } else if (activeTab === 'contacts') {
         const data = await getContacts();
         setContacts(data);
       } else if (activeTab === 'users') {
         const data = await getUsers();
         setUsers(data);
+      } else if (activeTab === 'pos') {
+        const data = await getPosSettings();
+        setPosSettings(data);
       }
       
       // Toujours charger les stats QR
@@ -327,6 +350,12 @@ const DashboardPage = () => {
           >
             {t('users')}
           </div>
+          <div
+            style={{ ...styles.tab, ...(activeTab === 'pos' && styles.tabActive) }}
+            onClick={() => setActiveTab('pos')}
+          >
+            Paramètres caisse
+          </div>
         </div>
 
         {loading ? (
@@ -378,21 +407,281 @@ const DashboardPage = () => {
 
             {activeTab === 'products' && (
               <div>
+                {/* Catégories */}
+                <div style={{ marginBottom: '2.5rem', paddingBottom: '2rem', borderBottom: '1px solid rgba(58,46,37,.12)' }}>
+                  <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.8rem', color: '#3A2E25', marginBottom: '1rem' }}>
+                    Catégories
+                  </h3>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
+                    {categories.map((cat) => (
+                      <div
+                        key={cat.id}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          background: '#E6DCCB',
+                          padding: '0.55rem 0.9rem',
+                          borderRadius: '999px',
+                          fontFamily: "'DM Sans', sans-serif",
+                          fontSize: '0.85rem',
+                          color: '#3A2E25',
+                        }}
+                      >
+                        <span>{cat.name} ({cat.productCount})</span>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (!confirm(`Supprimer la catégorie « ${cat.name} » ?`)) return;
+                            try {
+                              await deleteCategory(cat.id);
+                              loadData();
+                            } catch (err) {
+                              alert(err.response?.data?.error || 'Erreur suppression');
+                            }
+                          }}
+                          style={{
+                            border: 'none',
+                            background: 'transparent',
+                            color: '#9b3b2e',
+                            cursor: 'pointer',
+                            fontSize: '1rem',
+                            lineHeight: 1,
+                          }}
+                          title="Supprimer"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', maxWidth: '520px' }}>
+                    <input
+                      value={newCategoryName}
+                      onChange={(e) => setNewCategoryName(e.target.value)}
+                      placeholder="Nouvelle catégorie"
+                      style={{
+                        flex: 1,
+                        minWidth: '180px',
+                        padding: '0.75rem 1rem',
+                        border: '1.5px solid rgba(58,46,37,.2)',
+                        background: '#F7F5F2',
+                        fontFamily: "'DM Sans', sans-serif",
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (!newCategoryName.trim()) return;
+                        try {
+                          await createCategory({ name: newCategoryName.trim() });
+                          setNewCategoryName('');
+                          loadData();
+                        } catch (err) {
+                          alert(err.response?.data?.error || 'Erreur');
+                        }
+                      }}
+                      style={{
+                        background: '#3A2E25',
+                        color: '#F7F5F2',
+                        border: 'none',
+                        padding: '0.75rem 1.2rem',
+                        fontFamily: "'DM Sans', sans-serif",
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Ajouter catégorie
+                    </button>
+                  </div>
+                </div>
+
+                {/* Formulaire produit */}
+                <div style={{ marginBottom: '2.5rem', padding: '1.5rem', background: '#E6DCCB', borderRadius: '4px' }}>
+                  <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.8rem', color: '#3A2E25', marginBottom: '1rem' }}>
+                    {editingProductId ? 'Modifier le produit' : 'Nouveau produit'}
+                  </h3>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.8rem' }}>
+                    <input
+                      value={productForm.name}
+                      onChange={(e) => setProductForm((f) => ({ ...f, name: e.target.value }))}
+                      placeholder="Nom"
+                      style={{ padding: '0.75rem 1rem', border: '1.5px solid rgba(58,46,37,.2)', background: '#F7F5F2', fontFamily: "'DM Sans', sans-serif" }}
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={productForm.price}
+                      onChange={(e) => setProductForm((f) => ({ ...f, price: e.target.value }))}
+                      placeholder="Prix (€)"
+                      style={{ padding: '0.75rem 1rem', border: '1.5px solid rgba(58,46,37,.2)', background: '#F7F5F2', fontFamily: "'DM Sans', sans-serif" }}
+                    />
+                    <select
+                      value={productForm.category}
+                      onChange={(e) => setProductForm((f) => ({ ...f, category: e.target.value }))}
+                      style={{ padding: '0.75rem 1rem', border: '1.5px solid rgba(58,46,37,.2)', background: '#F7F5F2', fontFamily: "'DM Sans', sans-serif" }}
+                    >
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.name}>{c.name}</option>
+                      ))}
+                    </select>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: "'DM Sans', sans-serif", color: '#3A2E25' }}>
+                      <input
+                        type="checkbox"
+                        checked={productForm.isFavorite}
+                        onChange={(e) => setProductForm((f) => ({ ...f, isFavorite: e.target.checked }))}
+                      />
+                      Favori caisse
+                    </label>
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.6rem', marginTop: '1rem', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      disabled={productSaving}
+                      onClick={async () => {
+                        if (!productForm.name.trim() || productForm.price === '') {
+                          alert('Nom et prix requis');
+                          return;
+                        }
+                        setProductSaving(true);
+                        try {
+                          const payload = {
+                            name: productForm.name.trim(),
+                            price: Number(productForm.price),
+                            category: productForm.category,
+                            isFavorite: productForm.isFavorite,
+                            available: productForm.available,
+                          };
+                          if (editingProductId) {
+                            await updateProduct(editingProductId, payload);
+                          } else {
+                            await createProduct(payload);
+                          }
+                          setProductForm({
+                            name: '',
+                            price: '',
+                            category: categories[0]?.name || 'Autres',
+                            isFavorite: false,
+                            available: true,
+                          });
+                          setEditingProductId(null);
+                          loadData();
+                        } catch (err) {
+                          alert(err.response?.data?.error || 'Erreur sauvegarde');
+                        } finally {
+                          setProductSaving(false);
+                        }
+                      }}
+                      style={{
+                        background: '#3A2E25',
+                        color: '#F7F5F2',
+                        border: 'none',
+                        padding: '0.75rem 1.4rem',
+                        fontFamily: "'DM Sans', sans-serif",
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {productSaving ? '…' : editingProductId ? 'Enregistrer' : 'Ajouter produit'}
+                    </button>
+                    {editingProductId && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingProductId(null);
+                          setProductForm({
+                            name: '',
+                            price: '',
+                            category: categories[0]?.name || 'Autres',
+                            isFavorite: false,
+                            available: true,
+                          });
+                        }}
+                        style={{
+                          background: 'transparent',
+                          border: '1px solid rgba(58,46,37,.3)',
+                          color: '#3A2E25',
+                          padding: '0.75rem 1.2rem',
+                          fontFamily: "'DM Sans', sans-serif",
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Annuler
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Liste produits */}
+                <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.8rem', color: '#3A2E25', marginBottom: '1rem' }}>
+                  Produits
+                </h3>
                 {products.map((product) => (
                   <div key={product.id} style={styles.productCard}>
-                    <div>
+                    <div style={{ flex: 1 }}>
                       <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.3rem', color: '#3A2E25' }}>
-                        {product.name}
+                        {product.name} {product.isFavorite ? '★' : ''}
                       </div>
                       <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.9rem', color: '#1C1C1C', opacity: 0.7 }}>
-                        {product.price.toFixed(2)}€
+                        {Number(product.price).toFixed(2)}€ · {product.category || 'Autres'}
                       </div>
                     </div>
-                    <div
-                      style={{ ...styles.toggle, ...(product.available && styles.toggleActive) }}
-                      onClick={() => handleToggleProduct(product.id, !product.available)}
-                    >
-                      <div style={{ ...styles.toggleDot, ...(product.available && styles.toggleDotActive) }}></div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingProductId(product.id);
+                          setProductForm({
+                            name: product.name,
+                            price: String(product.price),
+                            category: product.category || 'Autres',
+                            isFavorite: !!product.isFavorite,
+                            available: !!product.available,
+                          });
+                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                        }}
+                        style={{
+                          background: 'transparent',
+                          border: '1px solid rgba(58,46,37,.25)',
+                          color: '#3A2E25',
+                          padding: '0.45rem 0.8rem',
+                          fontFamily: "'DM Sans', sans-serif",
+                          fontSize: '0.8rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Modifier
+                      </button>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!confirm(`Supprimer « ${product.name} » ?`)) return;
+                          try {
+                            const res = await deleteProduct(product.id);
+                            if (res.softDeleted) alert(res.message);
+                            loadData();
+                          } catch (err) {
+                            alert(err.response?.data?.error || 'Erreur');
+                          }
+                        }}
+                        style={{
+                          background: 'transparent',
+                          border: '1px solid rgba(155,59,46,.35)',
+                          color: '#9b3b2e',
+                          padding: '0.45rem 0.8rem',
+                          fontFamily: "'DM Sans', sans-serif",
+                          fontSize: '0.8rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Suppr.
+                      </button>
+                      <div
+                        style={{ ...styles.toggle, ...(product.available && styles.toggleActive) }}
+                        onClick={() => handleToggleProduct(product.id, !product.available)}
+                        title={product.available ? 'Disponible' : 'Épuisé'}
+                      >
+                        <div style={{ ...styles.toggleDot, ...(product.available && styles.toggleDotActive) }}></div>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -709,11 +998,101 @@ const DashboardPage = () => {
                 ))}
               </div>
             )}
+
+            {activeTab === 'pos' && posSettings && (
+              <div>
+                <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+                  <p style={{ fontFamily: "'DM Sans', sans-serif", color: '#1C1C1C', opacity: 0.75, maxWidth: '640px' }}>
+                    Règles tarifaires de la caisse. Les changements s’appliquent immédiatement, sans redéploiement.
+                  </p>
+                  <Link
+                    to="/pos"
+                    style={{
+                      background: '#3A2E25',
+                      color: '#F7F5F2',
+                      padding: '0.75rem 1.4rem',
+                      textDecoration: 'none',
+                      fontFamily: "'DM Sans', sans-serif",
+                      fontSize: '0.85rem',
+                      letterSpacing: '0.08em',
+                      textTransform: 'uppercase',
+                    }}
+                  >
+                    Ouvrir la caisse
+                  </Link>
+                </div>
+                {[
+                  ['residentDiscountPercent', 'Réduction résident (%)'],
+                  ['workerDiscountPercent', 'Réduction travailleur (%)'],
+                  ['earlyBirdDiscountPercent', 'Réduction Vroege Vogel (%)'],
+                  ['earlyBirdEndTime', 'Fin Vroege Vogel (HH:MM)'],
+                  ['lateSurchargePercent', 'Majoration après 11h (%)'],
+                  ['lateSurchargeStartTime', 'Début majoration (HH:MM)'],
+                  ['shopName', 'Nom sur ticket'],
+                  ['shopAddress', 'Adresse sur ticket'],
+                ].map(([key, label]) => (
+                  <div key={key} style={{ marginBottom: '1rem' }}>
+                    <label style={{ display: 'block', marginBottom: '0.4rem', fontFamily: "'DM Sans', sans-serif", fontSize: '0.85rem', color: '#3A2E25' }}>
+                      {label}
+                    </label>
+                    <input
+                      value={posSettings[key] ?? ''}
+                      onChange={(e) =>
+                        setPosSettings((prev) => ({ ...prev, [key]: e.target.value }))
+                      }
+                      style={{
+                        width: '100%',
+                        maxWidth: '420px',
+                        padding: '0.75rem 1rem',
+                        border: '1.5px solid rgba(58,46,37,.2)',
+                        background: '#F7F5F2',
+                        fontFamily: "'DM Sans', sans-serif",
+                        fontSize: '1rem',
+                      }}
+                    />
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  disabled={posSaving}
+                  onClick={async () => {
+                    setPosSaving(true);
+                    try {
+                      const payload = {
+                        ...posSettings,
+                        residentDiscountPercent: Number(posSettings.residentDiscountPercent),
+                        workerDiscountPercent: Number(posSettings.workerDiscountPercent),
+                        earlyBirdDiscountPercent: Number(posSettings.earlyBirdDiscountPercent),
+                        lateSurchargePercent: Number(posSettings.lateSurchargePercent),
+                      };
+                      const res = await updatePosSettings(payload);
+                      setPosSettings(res.settings);
+                      alert('Paramètres caisse enregistrés');
+                    } catch (error) {
+                      console.error(error);
+                      alert('Erreur sauvegarde');
+                    } finally {
+                      setPosSaving(false);
+                    }
+                  }}
+                  style={{
+                    ...styles.exportButton,
+                    background: '#3A2E25',
+                    color: '#F7F5F2',
+                    border: 'none',
+                    marginTop: '0.5rem',
+                  }}
+                >
+                  {posSaving ? 'Enregistrement…' : 'Enregistrer'}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
     </div>
   );
 };
+
 
 export default DashboardPage;
