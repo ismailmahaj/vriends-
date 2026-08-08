@@ -73,10 +73,10 @@ function PosShell() {
         getPosSettings(),
         getPosOrders({ status: 'held', limit: 20 }),
       ]);
-      setProducts(prods);
-      setCategories(cats.categories || []);
+      setProducts(Array.isArray(prods) ? prods : []);
+      setCategories(Array.isArray(cats?.categories) ? cats.categories : []);
       dispatch({ type: 'SET_SETTINGS', payload: settings });
-      setHeldOrders(held);
+      setHeldOrders(Array.isArray(held) ? held : []);
     } catch (err) {
       console.error(err);
       showToast('Erreur de chargement');
@@ -91,7 +91,8 @@ function PosShell() {
 
   const filteredProducts = useMemo(() => {
     const q = state.search.trim().toLowerCase();
-    return products.filter((p) => {
+    const list = Array.isArray(products) ? products : [];
+    return list.filter((p) => {
       if (state.category === 'FAVORITES' && !p.isFavorite) return false;
       if (state.category !== 'ALL' && state.category !== 'FAVORITES' && p.category !== state.category) {
         return false;

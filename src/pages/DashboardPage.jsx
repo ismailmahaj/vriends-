@@ -151,7 +151,7 @@ const DashboardPage = () => {
     return acc;
   }, {});
 
-  const pendingCount = orders.filter(o => o.status === 'pending').length;
+  const pendingCount = (Array.isArray(orders) ? orders : []).filter(o => o.status === 'pending').length;
 
   const styles = {
     page: {
