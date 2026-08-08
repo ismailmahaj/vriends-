@@ -1,18 +1,18 @@
-const db = require('../db/database');
+const prisma = require('../db/prisma');
 
 const mapProduct = (p) => ({
   id: p.id,
   name: p.name,
   price: p.price,
-  available: p.available === 1,
+  available: p.available,
   category: p.category || 'Autres',
-  imageUrl: p.image_url || null,
-  isFavorite: p.is_favorite === 1,
+  imageUrl: p.imageUrl || null,
+  isFavorite: p.isFavorite,
   sku: p.sku || null,
-  optionsSchema: p.options_schema
+  optionsSchema: p.optionsSchema
     ? (() => {
         try {
-          return JSON.parse(p.options_schema);
+          return JSON.parse(p.optionsSchema);
         } catch {
           return null;
         }
@@ -20,17 +20,21 @@ const mapProduct = (p) => ({
     : null,
 });
 
-const ensureCategoryExists = (categoryName) => {
+const ensureCategoryExists = async (categoryName) => {
   const name = String(categoryName || 'Autres').trim() || 'Autres';
-  db.prepare(`
-    INSERT OR IGNORE INTO categories (name, sort_order) VALUES (?, 99)
-  `).run(name);
+  await prisma.category.upsert({
+    where: { name },
+    create: { name, sortOrder: 99 },
+    update: {},
+  });
   return name;
 };
 
-const getProducts = (req, res) => {
+const getProducts = async (req, res) => {
   try {
-    const products = db.prepare('SELECT * FROM products ORDER BY category ASC, name ASC').all();
+    const products = await prisma.product.findMany({
+      orderBy: [{ category: 'asc' }, { name: 'asc' }],
+    });
     res.json(products.map(mapProduct));
   } catch (error) {
     console.error(error);
@@ -38,7 +42,7 @@ const getProducts = (req, res) => {
   }
 };
 
-const createProduct = (req, res) => {
+const createProduct = async (req, res) => {
   try {
     const {
       name,
@@ -57,22 +61,20 @@ const createProduct = (req, res) => {
       return res.status(400).json({ error: 'Prix invalide' });
     }
 
-    const categoryName = ensureCategoryExists(category);
+    const categoryName = await ensureCategoryExists(category);
 
-    const result = db.prepare(`
-      INSERT INTO products (name, price, available, category, is_favorite, sku, image_url)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      trimmedName,
-      priceNum,
-      available ? 1 : 0,
-      categoryName,
-      isFavorite ? 1 : 0,
-      sku ? String(sku).trim() : null,
-      imageUrl ? String(imageUrl).trim() : null
-    );
+    const created = await prisma.product.create({
+      data: {
+        name: trimmedName,
+        price: priceNum,
+        available: !!available,
+        category: categoryName,
+        isFavorite: !!isFavorite,
+        sku: sku ? String(sku).trim() : null,
+        imageUrl: imageUrl ? String(imageUrl).trim() : null,
+      },
+    });
 
-    const created = db.prepare('SELECT * FROM products WHERE id = ?').get(result.lastInsertRowid);
     res.status(201).json(mapProduct(created));
   } catch (error) {
     console.error(error);
@@ -80,38 +82,38 @@ const createProduct = (req, res) => {
   }
 };
 
-const updateProduct = (req, res) => {
+const updateProduct = async (req, res) => {
   try {
-    const product = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id);
+    const product = await prisma.product.findUnique({ where: { id: Number(req.params.id) } });
     if (!product) return res.status(404).json({ error: 'Produit non trouvé' });
 
     const body = req.body || {};
     const name = body.name != null ? String(body.name).trim() : product.name;
     const priceNum = body.price != null ? Number(body.price) : product.price;
     const categoryName = body.category != null
-      ? ensureCategoryExists(body.category)
+      ? await ensureCategoryExists(body.category)
       : (product.category || 'Autres');
-    const available = body.available != null ? (body.available ? 1 : 0) : product.available;
-    const isFavorite = body.isFavorite != null ? (body.isFavorite ? 1 : 0) : product.is_favorite;
-    const sku = body.sku !== undefined
-      ? (body.sku ? String(body.sku).trim() : null)
-      : product.sku;
-    const imageUrl = body.imageUrl !== undefined
-      ? (body.imageUrl ? String(body.imageUrl).trim() : null)
-      : product.image_url;
 
     if (!name) return res.status(400).json({ error: 'Nom du produit requis' });
     if (Number.isNaN(priceNum) || priceNum < 0) {
       return res.status(400).json({ error: 'Prix invalide' });
     }
 
-    db.prepare(`
-      UPDATE products
-      SET name = ?, price = ?, available = ?, category = ?, is_favorite = ?, sku = ?, image_url = ?
-      WHERE id = ?
-    `).run(name, priceNum, available, categoryName, isFavorite, sku, imageUrl, product.id);
+    const updated = await prisma.product.update({
+      where: { id: product.id },
+      data: {
+        name,
+        price: priceNum,
+        available: body.available != null ? !!body.available : product.available,
+        category: categoryName,
+        isFavorite: body.isFavorite != null ? !!body.isFavorite : product.isFavorite,
+        sku: body.sku !== undefined ? (body.sku ? String(body.sku).trim() : null) : product.sku,
+        imageUrl: body.imageUrl !== undefined
+          ? (body.imageUrl ? String(body.imageUrl).trim() : null)
+          : product.imageUrl,
+      },
+    });
 
-    const updated = db.prepare('SELECT * FROM products WHERE id = ?').get(product.id);
     res.json(mapProduct(updated));
   } catch (error) {
     console.error(error);
@@ -119,30 +121,30 @@ const updateProduct = (req, res) => {
   }
 };
 
-const deleteProduct = (req, res) => {
+const deleteProduct = async (req, res) => {
   try {
-    const product = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id);
+    const product = await prisma.product.findUnique({ where: { id: Number(req.params.id) } });
     if (!product) return res.status(404).json({ error: 'Produit non trouvé' });
 
-    const usedInPos = db.prepare(`
-      SELECT COUNT(*) as c FROM pos_order_items WHERE product_id = ?
-    `).get(product.id);
-    const usedInOrders = db.prepare(`
-      SELECT COUNT(*) as c FROM order_items WHERE product_id = ?
-    `).get(product.id);
+    const [usedInPos, usedInOrders] = await Promise.all([
+      prisma.posOrderItem.count({ where: { productId: product.id } }),
+      prisma.orderItem.count({ where: { productId: product.id } }),
+    ]);
 
-    if (usedInPos.c > 0 || usedInOrders.c > 0) {
-      // Soft delete : rendre indisponible plutôt que casser l'historique
-      db.prepare('UPDATE products SET available = 0 WHERE id = ?').run(product.id);
+    if (usedInPos > 0 || usedInOrders > 0) {
+      const updated = await prisma.product.update({
+        where: { id: product.id },
+        data: { available: false },
+      });
       return res.json({
         success: true,
         softDeleted: true,
         message: 'Produit désactivé (déjà utilisé dans des commandes)',
-        product: mapProduct({ ...product, available: 0 }),
+        product: mapProduct(updated),
       });
     }
 
-    db.prepare('DELETE FROM products WHERE id = ?').run(product.id);
+    await prisma.product.delete({ where: { id: product.id } });
     res.json({ success: true, softDeleted: false });
   } catch (error) {
     console.error(error);
@@ -150,19 +152,19 @@ const deleteProduct = (req, res) => {
   }
 };
 
-const toggleProduct = (req, res) => {
-  const { id } = req.params;
-
+const toggleProduct = async (req, res) => {
   try {
-    const product = db.prepare('SELECT * FROM products WHERE id = ?').get(id);
+    const product = await prisma.product.findUnique({ where: { id: Number(req.params.id) } });
     if (!product) {
       return res.status(404).json({ error: 'Produit non trouvé' });
     }
 
-    const newAvailable = product.available === 1 ? 0 : 1;
-    db.prepare('UPDATE products SET available = ? WHERE id = ?').run(newAvailable, id);
+    const updated = await prisma.product.update({
+      where: { id: product.id },
+      data: { available: !product.available },
+    });
 
-    res.json(mapProduct({ ...product, available: newAvailable }));
+    res.json(mapProduct(updated));
   } catch (error) {
     res.status(500).json({ error: 'Erreur serveur' });
   }

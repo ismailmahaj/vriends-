@@ -1,14 +1,16 @@
-const db = require('../db/database');
+const prisma = require('../db/prisma');
 
-const trackQRScan = (req, res) => {
+const trackQRScan = async (req, res) => {
   try {
     const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
     const userAgent = req.headers['user-agent'] || 'unknown';
 
-    db.prepare(`
-      INSERT INTO qr_scans (ip_address, user_agent)
-      VALUES (?, ?)
-    `).run(ipAddress, userAgent);
+    await prisma.qrScan.create({
+      data: {
+        ipAddress,
+        userAgent,
+      },
+    });
 
     res.json({ success: true });
   } catch (error) {
@@ -17,27 +19,30 @@ const trackQRScan = (req, res) => {
   }
 };
 
-const getQRStats = (req, res) => {
+const getQRStats = async (req, res) => {
   try {
-    const totalScans = db.prepare('SELECT COUNT(*) as count FROM qr_scans').get().count;
-    const todayScans = db.prepare(`
-      SELECT COUNT(*) as count FROM qr_scans 
-      WHERE DATE(created_at) = DATE('now')
-    `).get().count;
-    const thisWeekScans = db.prepare(`
-      SELECT COUNT(*) as count FROM qr_scans 
-      WHERE created_at >= datetime('now', '-7 days')
-    `).get().count;
-    const thisMonthScans = db.prepare(`
-      SELECT COUNT(*) as count FROM qr_scans 
-      WHERE created_at >= datetime('now', '-30 days')
-    `).get().count;
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+
+    const weekAgo = new Date(now);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+
+    const monthAgo = new Date(now);
+    monthAgo.setDate(monthAgo.getDate() - 30);
+
+    const [total, today, thisWeek, thisMonth] = await Promise.all([
+      prisma.qrScan.count(),
+      prisma.qrScan.count({ where: { createdAt: { gte: startOfToday } } }),
+      prisma.qrScan.count({ where: { createdAt: { gte: weekAgo } } }),
+      prisma.qrScan.count({ where: { createdAt: { gte: monthAgo } } }),
+    ]);
 
     res.json({
-      total: totalScans,
-      today: todayScans,
-      thisWeek: thisWeekScans,
-      thisMonth: thisMonthScans
+      total,
+      today,
+      thisWeek,
+      thisMonth,
     });
   } catch (error) {
     console.error('❌ Erreur récupération stats QR:', error);

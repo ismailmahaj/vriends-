@@ -1,0 +1,154 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              Int        @id @default(autoincrement())
+  name            String
+  email           String     @unique
+  password        String
+  role            String     @default("client")
+  localStatus     Boolean    @default(false) @map("local_status")
+  discountPercent Int        @default(0) @map("discount_percent")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  orders          Order[]
+  posOrders       PosOrder[]
+
+  @@map("users")
+}
+
+model Category {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("categories")
+}
+
+model Product {
+  id            Int         @id @default(autoincrement())
+  name          String
+  price         Float
+  available     Boolean     @default(true)
+  category      String      @default("Autres")
+  imageUrl      String?     @map("image_url")
+  isFavorite    Boolean     @default(false) @map("is_favorite")
+  sku           String?
+  optionsSchema String?     @map("options_schema")
+  orderItems    OrderItem[]
+  posOrderItems PosOrderItem[]
+
+  @@map("products")
+}
+
+model Order {
+  id         Int         @id @default(autoincrement())
+  userId     Int         @map("user_id")
+  totalPrice Float       @map("total_price")
+  pickupTime String      @map("pickup_time")
+  status     String      @default("pending")
+  createdAt  DateTime    @default(now()) @map("created_at")
+  user       User        @relation(fields: [userId], references: [id])
+  items      OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id        Int     @id @default(autoincrement())
+  orderId   Int     @map("order_id")
+  productId Int     @map("product_id")
+  quantity  Int
+  price     Float
+  order     Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+model Contact {
+  id        Int      @id @default(autoincrement())
+  name      String
+  email     String
+  phone     String?
+  message   String
+  consent   Boolean  @default(false)
+  treated   Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("contacts")
+}
+
+model QrScan {
+  id        Int      @id @default(autoincrement())
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("qr_scans")
+}
+
+model Setting {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  value     String
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
+
+model PosOrder {
+  id                     Int            @id @default(autoincrement())
+  orderNumber            String         @unique @map("order_number")
+  cashierId              Int            @map("cashier_id")
+  customerType           String         @default("STANDARD") @map("customer_type")
+  orderType              String         @default("DINE_IN") @map("order_type")
+  status                 String         @default("open")
+  subtotalCents          Int            @default(0) @map("subtotal_cents")
+  customerDiscountCents  Int            @default(0) @map("customer_discount_cents")
+  earlyBirdDiscountCents Int            @default(0) @map("early_bird_discount_cents")
+  lateSurchargeCents     Int            @default(0) @map("late_surcharge_cents")
+  discountCents          Int            @default(0) @map("discount_cents")
+  surchargeCents         Int            @default(0) @map("surcharge_cents")
+  totalCents             Int            @default(0) @map("total_cents")
+  paymentMethod          String?        @map("payment_method")
+  paymentStatus          String         @default("unpaid") @map("payment_status")
+  cashReceivedCents      Int?           @map("cash_received_cents")
+  cashChangeCents        Int?           @map("cash_change_cents")
+  appliedRules           Json?          @map("applied_rules")
+  taxCents               Int            @default(0) @map("tax_cents")
+  idempotencyKey         String?        @unique @map("idempotency_key")
+  notes                  String?
+  heldAt                 DateTime?      @map("held_at")
+  paidAt                 DateTime?      @map("paid_at")
+  createdAt              DateTime       @default(now()) @map("created_at")
+  updatedAt              DateTime       @default(now()) @updatedAt @map("updated_at")
+  cashier                User           @relation(fields: [cashierId], references: [id])
+  items                  PosOrderItem[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@index([cashierId])
+  @@map("pos_orders")
+}
+
+model PosOrderItem {
+  id                  Int      @id @default(autoincrement())
+  orderId             Int      @map("order_id")
+  productId           Int?     @map("product_id")
+  productNameSnapshot String   @map("product_name_snapshot")
+  unitPriceCents      Int      @map("unit_price_cents")
+  quantity            Int
+  optionsJson         Json?    @map("options_json")
+  subtotalCents       Int      @map("subtotal_cents")
+  order               PosOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product             Product? @relation(fields: [productId], references: [id])
+
+  @@map("pos_order_items")
+}

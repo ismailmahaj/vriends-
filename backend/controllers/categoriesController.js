@@ -1,95 +1,105 @@
-const db = require('../db/database');
+const prisma = require('../db/prisma');
 
-const mapCategory = (c) => ({
+const mapCategory = (c, productCount = 0) => ({
   id: c.id,
   name: c.name,
-  sortOrder: c.sort_order,
-  createdAt: c.created_at,
+  sortOrder: c.sortOrder,
+  createdAt: c.createdAt,
+  productCount,
 });
 
-const getCategories = (req, res) => {
+const getCategories = async (req, res) => {
   try {
-    const rows = db.prepare(`
-      SELECT c.*,
-        (SELECT COUNT(*) FROM products p WHERE p.category = c.name) as product_count
-      FROM categories c
-      ORDER BY c.sort_order ASC, c.name ASC
-    `).all();
-    res.json(rows.map((c) => ({ ...mapCategory(c), productCount: c.product_count })));
+    const rows = await prisma.category.findMany({
+      orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+    });
+
+    const counts = await prisma.product.groupBy({
+      by: ['category'],
+      _count: { _all: true },
+    });
+    const countMap = Object.fromEntries(counts.map((c) => [c.category, c._count._all]));
+
+    res.json(rows.map((c) => mapCategory(c, countMap[c.name] || 0)));
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 };
 
-const createCategory = (req, res) => {
+const createCategory = async (req, res) => {
   try {
     const name = String(req.body?.name || '').trim();
     const sortOrder = Number(req.body?.sortOrder ?? 0) || 0;
     if (!name) return res.status(400).json({ error: 'Nom de catégorie requis' });
 
-    const exists = db.prepare('SELECT id FROM categories WHERE lower(name) = lower(?)').get(name);
+    const exists = await prisma.category.findFirst({
+      where: { name: { equals: name, mode: 'insensitive' } },
+    });
     if (exists) return res.status(400).json({ error: 'Cette catégorie existe déjà' });
 
-    const result = db.prepare(`
-      INSERT INTO categories (name, sort_order) VALUES (?, ?)
-    `).run(name, sortOrder);
-
-    const created = db.prepare('SELECT * FROM categories WHERE id = ?').get(result.lastInsertRowid);
-    res.status(201).json(mapCategory(created));
+    const created = await prisma.category.create({
+      data: { name, sortOrder },
+    });
+    res.status(201).json(mapCategory(created, 0));
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 };
 
-const updateCategory = (req, res) => {
+const updateCategory = async (req, res) => {
   try {
-    const category = db.prepare('SELECT * FROM categories WHERE id = ?').get(req.params.id);
+    const category = await prisma.category.findUnique({ where: { id: Number(req.params.id) } });
     if (!category) return res.status(404).json({ error: 'Catégorie non trouvée' });
 
     const name = req.body?.name != null ? String(req.body.name).trim() : category.name;
-    const sortOrder = req.body?.sortOrder != null ? Number(req.body.sortOrder) || 0 : category.sort_order;
+    const sortOrder = req.body?.sortOrder != null ? Number(req.body.sortOrder) || 0 : category.sortOrder;
     if (!name) return res.status(400).json({ error: 'Nom de catégorie requis' });
 
-    const clash = db.prepare(`
-      SELECT id FROM categories WHERE lower(name) = lower(?) AND id != ?
-    `).get(name, category.id);
+    const clash = await prisma.category.findFirst({
+      where: {
+        name: { equals: name, mode: 'insensitive' },
+        NOT: { id: category.id },
+      },
+    });
     if (clash) return res.status(400).json({ error: 'Cette catégorie existe déjà' });
 
-    const tx = db.transaction(() => {
-      db.prepare(`
-        UPDATE categories SET name = ?, sort_order = ? WHERE id = ?
-      `).run(name, sortOrder, category.id);
+    const updated = await prisma.$transaction(async (tx) => {
+      const cat = await tx.category.update({
+        where: { id: category.id },
+        data: { name, sortOrder },
+      });
       if (name !== category.name) {
-        db.prepare(`
-          UPDATE products SET category = ? WHERE category = ?
-        `).run(name, category.name);
+        await tx.product.updateMany({
+          where: { category: category.name },
+          data: { category: name },
+        });
       }
+      return cat;
     });
-    tx();
 
-    const updated = db.prepare('SELECT * FROM categories WHERE id = ?').get(category.id);
-    res.json(mapCategory(updated));
+    const productCount = await prisma.product.count({ where: { category: updated.name } });
+    res.json(mapCategory(updated, productCount));
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erreur serveur' });
   }
 };
 
-const deleteCategory = (req, res) => {
+const deleteCategory = async (req, res) => {
   try {
-    const category = db.prepare('SELECT * FROM categories WHERE id = ?').get(req.params.id);
+    const category = await prisma.category.findUnique({ where: { id: Number(req.params.id) } });
     if (!category) return res.status(404).json({ error: 'Catégorie non trouvée' });
 
-    const count = db.prepare('SELECT COUNT(*) as c FROM products WHERE category = ?').get(category.name);
-    if (count.c > 0) {
+    const count = await prisma.product.count({ where: { category: category.name } });
+    if (count > 0) {
       return res.status(400).json({
-        error: `Impossible de supprimer : ${count.c} produit(s) utilisent cette catégorie`,
+        error: `Impossible de supprimer : ${count} produit(s) utilisent cette catégorie`,
       });
     }
 
-    db.prepare('DELETE FROM categories WHERE id = ?').run(category.id);
+    await prisma.category.delete({ where: { id: category.id } });
     res.json({ success: true });
   } catch (error) {
     console.error(error);

@@ -1,4 +1,4 @@
-const db = require('../db/database');
+const prisma = require('../db/prisma');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
@@ -14,29 +14,31 @@ const register = async (req, res) => {
   }
 
   try {
-    const existingUser = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+    const existingUser = await prisma.user.findUnique({ where: { email } });
     if (existingUser) {
       return res.status(400).json({ error: 'Email déjà utilisé' });
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const local_status = localStatus ? 1 : 0;
-    // Si l'utilisateur vient de Poperinge, lui attribuer 10% de réduction
+    const local_status = !!localStatus;
     const discount_percent = localStatus ? 10 : 0;
 
-    const result = db.prepare(`
-      INSERT INTO users (name, email, password, local_status, discount_percent)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(name, email, hashedPassword, local_status, discount_percent);
+    const newUser = await prisma.user.create({
+      data: {
+        name,
+        email,
+        password: hashedPassword,
+        localStatus: local_status,
+        discountPercent: discount_percent,
+      },
+    });
 
-    const newUser = db.prepare('SELECT * FROM users WHERE id = ?').get(result.lastInsertRowid);
-
-    console.log('✅ Utilisateur créé:', { 
-      id: newUser.id, 
-      email, 
-      name, 
-      local_status: local_status === 1 ? 'Oui' : 'Non',
-      discount_percent: discount_percent + '%'
+    console.log('✅ Utilisateur créé:', {
+      id: newUser.id,
+      email,
+      name,
+      local_status: local_status ? 'Oui' : 'Non',
+      discount_percent: `${discount_percent}%`,
     });
 
     res.status(201).json({
@@ -47,9 +49,9 @@ const register = async (req, res) => {
         name: newUser.name,
         email: newUser.email,
         role: newUser.role,
-        local_status: newUser.local_status === 1,
-        discount_percent: newUser.discount_percent
-      }
+        local_status: newUser.localStatus,
+        discount_percent: newUser.discountPercent,
+      },
     });
   } catch (error) {
     console.error('❌ Erreur inscription:', error);
@@ -65,27 +67,21 @@ const login = async (req, res) => {
   }
 
   try {
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
-    
+    const user = await prisma.user.findUnique({ where: { email } });
+
     if (!user) {
       return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
     }
 
     console.log('Tentative de connexion pour:', email);
-    
+
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
       console.log('Mot de passe incorrect pour:', email);
       return res.status(401).json({ error: 'Email ou mot de passe incorrect' });
     }
 
-    // Utiliser une valeur par défaut si JWT_SECRET n'est pas défini
     const jwtSecret = process.env.JWT_SECRET || 'vriends_super_secret_key_change_in_production';
-    
-    if (!jwtSecret) {
-      console.error('❌ JWT_SECRET n\'est pas défini');
-      return res.status(500).json({ error: 'Configuration serveur manquante' });
-    }
 
     const token = jwt.sign(
       { id: user.id, email: user.email, role: user.role, name: user.name },
@@ -102,9 +98,9 @@ const login = async (req, res) => {
         name: user.name,
         email: user.email,
         role: user.role,
-        local_status: user.local_status === 1,
-        discount_percent: user.discount_percent
-      }
+        local_status: user.localStatus,
+        discount_percent: user.discountPercent,
+      },
     });
   } catch (error) {
     console.error('❌ Erreur login:', error);
@@ -112,43 +108,71 @@ const login = async (req, res) => {
   }
 };
 
-const getUsers = (req, res) => {
+const getUsers = async (req, res) => {
   try {
-    const users = db.prepare('SELECT id, name, email, role, local_status, discount_percent, created_at FROM users ORDER BY created_at DESC').all();
-    
-    res.json(users.map(user => ({
-      ...user,
-      local_status: user.local_status === 1
-    })));
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        localStatus: true,
+        discountPercent: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json(
+      users.map((user) => ({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        local_status: user.localStatus,
+        discount_percent: user.discountPercent,
+        created_at: user.createdAt,
+      }))
+    );
   } catch (error) {
     console.error('❌ Erreur récupération utilisateurs:', error);
     res.status(500).json({ error: 'Erreur serveur', details: error.message });
   }
 };
 
-const exportUsersCSV = (req, res) => {
+const exportUsersCSV = async (req, res) => {
   try {
-    const users = db.prepare('SELECT id, name, email, role, local_status, discount_percent, created_at FROM users ORDER BY created_at DESC').all();
-    
+    const users = await prisma.user.findMany({
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        localStatus: true,
+        discountPercent: true,
+        createdAt: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
     console.log(`📊 Export CSV utilisateurs: ${users.length} utilisateur(s) trouvé(s)`);
-    
-    // BOM UTF-8 pour Excel
+
     let csv = '\ufeffID,Nom,Email,Rôle,Statut Local,Réduction (%),Date de création\n';
-    
+
     if (users.length === 0) {
       csv += 'Aucun utilisateur\n';
     } else {
-      users.forEach(user => {
+      users.forEach((user) => {
         const row = [
           user.id,
           `"${String(user.name || '').replace(/"/g, '""')}"`,
           String(user.email || ''),
           String(user.role || 'client'),
-          user.local_status === 1 ? 'Oui' : 'Non',
-          String(user.discount_percent || 0),
-          String(user.created_at || '')
+          user.localStatus ? 'Oui' : 'Non',
+          String(user.discountPercent || 0),
+          String(user.createdAt || ''),
         ].join(',');
-        csv += row + '\n';
+        csv += `${row}\n`;
       });
     }
 

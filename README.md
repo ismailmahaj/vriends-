@@ -1,6 +1,6 @@
 # Vriends Poperinge
 
-Site web complet pour le café-restaurant Vriends Poperinge. Application full-stack avec React (frontend) et Node.js/Express/SQLite (backend).
+Site web complet pour le café-restaurant Vriends Poperinge. Application full-stack avec React (frontend) et Node.js/Express/PostgreSQL (backend).
 
 ## Prérequis
 
@@ -103,13 +103,13 @@ Le frontend sera accessible sur http://localhost:5173
 - **Produits** : CRUD avec gestion de disponibilité
 - **Commandes** : Création, consultation et gestion des statuts
 - **Contacts** : Soumission publique, gestion admin avec export CSV
-- **Base de données** : SQLite avec better-sqlite3
+- **Base de données** : PostgreSQL avec Prisma
 
 ## Technologies
 
 - **Frontend** : React 18, React Router v6, Axios, Vite
-- **Backend** : Node.js, Express, better-sqlite3, JWT, bcrypt
-- **Base de données** : SQLite
+- **Backend** : Node.js, Express, Prisma, JWT, bcrypt
+- **Base de données** : PostgreSQL (voir `docs/POSTGRES.md`)
 - **Styles** : Inline styles (objets JavaScript)
 - **Polices** : Cormorant Garamond (titres) + DM Sans (corps)
 
@@ -122,7 +122,7 @@ Le frontend sera accessible sur http://localhost:5173
 
 ## Notes
 
-- La base de données SQLite est créée automatiquement au premier lancement
-- Les données seed (admin et produits) sont insérées automatiquement
-- Le backend utilise le mode WAL pour SQLite
+- PostgreSQL local via Docker : `docker compose up -d` (port **5435**)
+- Migrations Prisma : `npx prisma migrate deploy` — détails dans `docs/POSTGRES.md`
+- Seed ou import SQLite : `npm run db:seed` / `npm run db:migrate-from-sqlite`
 - Les tokens JWT expirent après 7 jours

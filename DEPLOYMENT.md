@@ -35,18 +35,21 @@ Railway permet de déployer facilement les deux parties.
    ```
    PORT=3001
    JWT_SECRET=votre_secret_jwt_tres_securise_changez_moi
-   DB_PATH=./db/vriends.db
+   DATABASE_URL=${{Postgres.DATABASE_URL}}
    FRONTEND_URL=https://votre-frontend.railway.app
    NODE_ENV=production
    ```
+   > SQLite (`DB_PATH`) n’est plus utilisé. Voir aussi [docs/POSTGRES.md](docs/POSTGRES.md).
 
 5. **Base de données** :
-   - Railway crée automatiquement un volume pour la DB
-   - Le fichier `vriends.db` sera persistant
+   - Ajouter le plugin **PostgreSQL** au projet Railway
+   - Lier `DATABASE_URL` au service backend
+   - `npm start` exécute `prisma migrate deploy` puis lance le serveur
 
 6. **Déployer** :
    - Railway détecte automatiquement et déploie
    - Notez l'URL générée (ex: `https://vriends-backend.railway.app`)
+   - Optionnel : migrer une fois les données SQLite via `npm run db:migrate-from-sqlite` en local pointant `DATABASE_URL` vers Railway
 
 ### Frontend sur Railway
 

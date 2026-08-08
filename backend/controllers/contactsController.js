@@ -1,6 +1,6 @@
-const db = require('../db/database');
+const prisma = require('../db/prisma');
 
-const submitContact = (req, res) => {
+const submitContact = async (req, res) => {
   const { name, email, phone, message, consent } = req.body;
 
   if (!name || !email || !message) {
@@ -12,16 +12,20 @@ const submitContact = (req, res) => {
   }
 
   try {
-    // Sanitizer basique
     const sanitizedMessage = message
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/&/g, '&amp;');
 
-    db.prepare(`
-      INSERT INTO contacts (name, email, phone, message, consent)
-      VALUES (?, ?, ?, ?, 1)
-    `).run(name, email, phone || null, sanitizedMessage);
+    await prisma.contact.create({
+      data: {
+        name,
+        email,
+        phone: phone || null,
+        message: sanitizedMessage,
+        consent: true,
+      },
+    });
 
     res.status(201).json({ success: true, message: 'Message envoyé avec succès' });
   } catch (error) {
@@ -29,84 +33,91 @@ const submitContact = (req, res) => {
   }
 };
 
-const getContacts = (req, res) => {
+const getContacts = async (req, res) => {
   const { sort = 'desc', treated } = req.query;
 
   try {
-    let query = 'SELECT * FROM contacts';
-    const params = [];
-
+    const where = {};
     if (treated !== undefined) {
-      query += ' WHERE treated = ?';
-      params.push(treated === 'true' ? 1 : 0);
+      where.treated = treated === 'true';
     }
 
-    query += ` ORDER BY created_at ${sort === 'asc' ? 'ASC' : 'DESC'}`;
-
-    const contacts = db.prepare(query).all(...params);
-    const newCount = db.prepare('SELECT COUNT(*) as count FROM contacts WHERE treated = 0').get().count;
+    const contacts = await prisma.contact.findMany({
+      where,
+      orderBy: { createdAt: sort === 'asc' ? 'asc' : 'desc' },
+    });
+    const newCount = await prisma.contact.count({ where: { treated: false } });
 
     res.json({
-      contacts: contacts.map(c => ({
-        ...c,
-        treated: c.treated === 1,
-        consent: c.consent === 1
+      contacts: contacts.map((c) => ({
+        id: c.id,
+        name: c.name,
+        email: c.email,
+        phone: c.phone,
+        message: c.message,
+        consent: c.consent,
+        treated: c.treated,
+        created_at: c.createdAt,
       })),
       total: contacts.length,
-      newCount
+      newCount,
     });
   } catch (error) {
     res.status(500).json({ error: 'Erreur serveur' });
   }
 };
 
-const markTreated = (req, res) => {
+const markTreated = async (req, res) => {
   const { id } = req.params;
   const { treated } = req.body;
 
   try {
-    db.prepare('UPDATE contacts SET treated = ? WHERE id = ?').run(treated ? 1 : 0, id);
+    await prisma.contact.update({
+      where: { id: Number(id) },
+      data: { treated: !!treated },
+    });
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: 'Erreur serveur' });
   }
 };
 
-const deleteContact = (req, res) => {
+const deleteContact = async (req, res) => {
   const { id } = req.params;
 
   try {
-    db.prepare('DELETE FROM contacts WHERE id = ?').run(id);
+    await prisma.contact.delete({ where: { id: Number(id) } });
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: 'Erreur serveur' });
   }
 };
 
-const exportCSV = (req, res) => {
+const exportCSV = async (req, res) => {
   try {
-    const contacts = db.prepare('SELECT * FROM contacts ORDER BY created_at DESC').all();
-    
+    const contacts = await prisma.contact.findMany({
+      orderBy: { createdAt: 'desc' },
+    });
+
     console.log(`📊 Export CSV: ${contacts.length} contact(s) trouvé(s)`);
-    
-    // BOM UTF-8 pour Excel
+
     let csv = '\ufeffID,Nom,Email,Téléphone,Message,Consentement,Traité,Date\n';
-    
+
     if (contacts.length === 0) {
       csv += 'Aucun contact\n';
     } else {
-      contacts.forEach(contact => {
+      contacts.forEach((contact) => {
         const row = [
           contact.id,
           `"${String(contact.name || '').replace(/"/g, '""')}"`,
           String(contact.email || ''),
           String(contact.phone || ''),
           `"${String(contact.message || '').replace(/"/g, '""').replace(/\n/g, ' ').replace(/\r/g, '')}"`,
-          contact.consent === 1 ? 'Oui' : 'Non',
-          contact.treated === 1 ? 'Oui' : 'Non',
-          String(contact.created_at || '')
+          contact.consent ? 'Oui' : 'Non',
+          contact.treated ? 'Oui' : 'Non',
+          String(contact.createdAt || ''),
         ].join(',');
-        csv += row + '\n';
+        csv += `${row}\n`;
       });
     }
 

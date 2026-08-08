@@ -12,8 +12,8 @@ services:
         value: 10000
       - key: JWT_SECRET
         generateValue: true
-      - key: DB_PATH
-        value: ./db/vriends.db
+      - key: DATABASE_URL
+        sync: false
       - key: FRONTEND_URL
         fromService:
           name: vriends-frontend

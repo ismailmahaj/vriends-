@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: vriends-postgres
+    restart: unless-stopped
+    ports:
+      - "5435:5432"
+    environment:
+      POSTGRES_USER: vriends
+      POSTGRES_PASSWORD: vriends
+      POSTGRES_DB: vriends
+    volumes:
+      - vriends_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vriends -d vriends"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  vriends_pg_data:
