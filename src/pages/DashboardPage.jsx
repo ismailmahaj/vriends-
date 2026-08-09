@@ -38,6 +38,15 @@ const DashboardPage = () => {
   });
   const [editingProductId, setEditingProductId] = useState(null);
   const [productSaving, setProductSaving] = useState(false);
+  const [isMobile, setIsMobile] = useState(() =>
+    typeof window !== 'undefined' ? window.innerWidth <= 768 : false
+  );
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -157,8 +166,10 @@ const DashboardPage = () => {
     page: {
       minHeight: '100vh',
       background: '#E6DCCB',
-      paddingTop: '80px',
-      padding: '4rem 2rem'
+      paddingTop: isMobile ? '5.5rem' : '6rem',
+      paddingLeft: isMobile ? '1rem' : '2rem',
+      paddingRight: isMobile ? '1rem' : '2rem',
+      paddingBottom: isMobile ? '2rem' : '4rem',
     },
     container: {
       maxWidth: '1400px',
@@ -166,27 +177,32 @@ const DashboardPage = () => {
     },
     title: {
       fontFamily: "'Cormorant Garamond', serif",
-      fontSize: '3.5rem',
+      fontSize: isMobile ? '2.2rem' : '3.5rem',
       color: '#3A2E25',
-      marginBottom: '3rem'
+      marginBottom: isMobile ? '1.5rem' : '3rem'
     },
     tabs: {
       display: 'flex',
-      gap: '2rem',
-      marginBottom: '3rem',
-      borderBottom: '1px solid rgba(58,46,37,.12)'
+      gap: isMobile ? '1rem' : '2rem',
+      marginBottom: isMobile ? '1.5rem' : '3rem',
+      borderBottom: '1px solid rgba(58,46,37,.12)',
+      overflowX: 'auto',
+      WebkitOverflowScrolling: 'touch',
+      flexWrap: 'nowrap',
     },
     tab: {
       padding: '1rem 0',
       fontFamily: "'DM Sans', sans-serif",
-      fontSize: '0.9rem',
+      fontSize: isMobile ? '0.78rem' : '0.9rem',
       textTransform: 'uppercase',
       letterSpacing: '.1em',
       color: '#1C1C1C',
       opacity: 0.6,
       cursor: 'pointer',
       borderBottom: '2px solid transparent',
-      marginBottom: '-1px'
+      marginBottom: '-1px',
+      whiteSpace: 'nowrap',
+      flexShrink: 0,
     },
     tabActive: {
       opacity: 1,
@@ -204,47 +220,53 @@ const DashboardPage = () => {
     },
     section: {
       background: '#F7F5F2',
-      padding: '2.5rem'
+      padding: isMobile ? '1.25rem' : '2.5rem'
     },
     orderGroup: {
       marginBottom: '3rem'
     },
     groupTitle: {
       fontFamily: "'Cormorant Garamond', serif",
-      fontSize: '1.8rem',
+      fontSize: isMobile ? '1.4rem' : '1.8rem',
       color: '#3A2E25',
       marginBottom: '1.5rem'
     },
     orderCard: {
       background: '#F7F5F2',
       border: '1px solid rgba(58,46,37,.12)',
-      padding: '1.5rem',
+      padding: isMobile ? '1rem' : '1.5rem',
       marginBottom: '1rem'
     },
     orderHeader: {
       display: 'flex',
       justifyContent: 'space-between',
-      alignItems: 'center',
+      alignItems: isMobile ? 'stretch' : 'center',
+      flexDirection: isMobile ? 'column' : 'row',
+      gap: isMobile ? '0.75rem' : 0,
       marginBottom: '1rem'
     },
     orderInfo: {
       fontFamily: "'DM Sans', sans-serif",
       fontSize: '0.95rem',
       color: '#1C1C1C',
-      marginBottom: '0.3rem'
+      marginBottom: '0.3rem',
+      wordBreak: 'break-word',
     },
     select: {
       padding: '0.6rem',
       background: '#F7F5F2',
       border: '1.5px solid rgba(58,46,37,.2)',
       fontFamily: "'DM Sans', sans-serif",
-      fontSize: '0.9rem'
+      fontSize: '0.9rem',
+      width: isMobile ? '100%' : 'auto',
     },
     productCard: {
       display: 'flex',
       justifyContent: 'space-between',
-      alignItems: 'center',
-      padding: '1.5rem',
+      alignItems: isMobile ? 'stretch' : 'center',
+      flexDirection: isMobile ? 'column' : 'row',
+      gap: isMobile ? '0.85rem' : 0,
+      padding: isMobile ? '1rem' : '1.5rem',
       background: '#F7F5F2',
       border: '1px solid rgba(58,46,37,.12)',
       marginBottom: '1rem'
@@ -323,7 +345,7 @@ const DashboardPage = () => {
   return (
     <div style={styles.page}>
       <div style={styles.container}>
-        <h1 style={styles.title}>Dashboard Commerçant</h1>
+        <h1 style={styles.title}>{t('dashboardMerchantTitle')}</h1>
 
         <div style={styles.tabs}>
           <div
@@ -354,12 +376,12 @@ const DashboardPage = () => {
             style={{ ...styles.tab, ...(activeTab === 'pos' && styles.tabActive) }}
             onClick={() => setActiveTab('pos')}
           >
-            Paramètres caisse
+            {t('posSettingsTab')}
           </div>
         </div>
 
         {loading ? (
-          <div>Chargement...</div>
+          <div>{t('loading')}</div>
         ) : (
           <div style={styles.section}>
             {activeTab === 'orders' && (
@@ -368,13 +390,13 @@ const DashboardPage = () => {
                   .sort(([a], [b]) => a.localeCompare(b))
                   .map(([pickupTime, timeOrders]) => (
                     <div key={pickupTime} style={styles.orderGroup}>
-                      <h3 style={styles.groupTitle}>Retrait à {pickupTime}</h3>
+                      <h3 style={styles.groupTitle}>{t('posPickupAt')} {pickupTime}</h3>
                       {timeOrders.map((order) => (
                         <div key={order.id} style={styles.orderCard}>
                           <div style={styles.orderHeader}>
                             <div>
                               <div style={styles.orderInfo}>
-                                <strong>Commande #{order.id}</strong> - {order.user?.name || 'N/A'} ({order.user?.email || 'N/A'})
+                                <strong>{t('posOrderHash')} #{order.id}</strong> - {order.user?.name || 'N/A'} ({order.user?.email || 'N/A'})
                               </div>
                               <div style={styles.orderInfo}>{t('orderTotal')} : {order.total_price.toFixed(2)}€</div>
                             </div>
@@ -410,7 +432,7 @@ const DashboardPage = () => {
                 {/* Catégories */}
                 <div style={{ marginBottom: '2.5rem', paddingBottom: '2rem', borderBottom: '1px solid rgba(58,46,37,.12)' }}>
                   <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.8rem', color: '#3A2E25', marginBottom: '1rem' }}>
-                    Catégories
+                    {t('posCategories')}
                   </h3>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1rem' }}>
                     {categories.map((cat) => (
@@ -432,12 +454,12 @@ const DashboardPage = () => {
                         <button
                           type="button"
                           onClick={async () => {
-                            if (!confirm(`Supprimer la catégorie « ${cat.name} » ?`)) return;
+                            if (!confirm(t('posDeleteCategoryConfirm', { name: cat.name }))) return;
                             try {
                               await deleteCategory(cat.id);
                               loadData();
                             } catch (err) {
-                              alert(err.response?.data?.error || 'Erreur suppression');
+                              alert(err.response?.data?.error || t('posDeleteError'));
                             }
                           }}
                           style={{
@@ -448,7 +470,7 @@ const DashboardPage = () => {
                             fontSize: '1rem',
                             lineHeight: 1,
                           }}
-                          title="Supprimer"
+                          title={t('delete')}
                         >
                           ×
                         </button>
@@ -459,7 +481,7 @@ const DashboardPage = () => {
                     <input
                       value={newCategoryName}
                       onChange={(e) => setNewCategoryName(e.target.value)}
-                      placeholder="Nouvelle catégorie"
+                      placeholder={t('posNewCategory')}
                       style={{
                         flex: 1,
                         minWidth: '180px',
@@ -478,7 +500,7 @@ const DashboardPage = () => {
                           setNewCategoryName('');
                           loadData();
                         } catch (err) {
-                          alert(err.response?.data?.error || 'Erreur');
+                          alert(err.response?.data?.error || t('error'));
                         }
                       }}
                       style={{
@@ -490,7 +512,7 @@ const DashboardPage = () => {
                         cursor: 'pointer',
                       }}
                     >
-                      Ajouter catégorie
+                      {t('posAddCategory')}
                     </button>
                   </div>
                 </div>
@@ -498,13 +520,13 @@ const DashboardPage = () => {
                 {/* Formulaire produit */}
                 <div style={{ marginBottom: '2.5rem', padding: '1.5rem', background: '#E6DCCB', borderRadius: '4px' }}>
                   <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.8rem', color: '#3A2E25', marginBottom: '1rem' }}>
-                    {editingProductId ? 'Modifier le produit' : 'Nouveau produit'}
+                    {editingProductId ? t('posEditProduct') : t('posNewProduct')}
                   </h3>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.8rem' }}>
                     <input
                       value={productForm.name}
                       onChange={(e) => setProductForm((f) => ({ ...f, name: e.target.value }))}
-                      placeholder="Nom"
+                      placeholder={t('posNamePlaceholder')}
                       style={{ padding: '0.75rem 1rem', border: '1.5px solid rgba(58,46,37,.2)', background: '#F7F5F2', fontFamily: "'DM Sans', sans-serif" }}
                     />
                     <input
@@ -513,7 +535,7 @@ const DashboardPage = () => {
                       min="0"
                       value={productForm.price}
                       onChange={(e) => setProductForm((f) => ({ ...f, price: e.target.value }))}
-                      placeholder="Prix (€)"
+                      placeholder={t('posPricePlaceholder')}
                       style={{ padding: '0.75rem 1rem', border: '1.5px solid rgba(58,46,37,.2)', background: '#F7F5F2', fontFamily: "'DM Sans', sans-serif" }}
                     />
                     <select
@@ -531,7 +553,7 @@ const DashboardPage = () => {
                         checked={productForm.isFavorite}
                         onChange={(e) => setProductForm((f) => ({ ...f, isFavorite: e.target.checked }))}
                       />
-                      Favori caisse
+                      {t('posFavoriteFlag')}
                     </label>
                   </div>
                   <div style={{ display: 'flex', gap: '0.6rem', marginTop: '1rem', flexWrap: 'wrap' }}>
@@ -540,7 +562,7 @@ const DashboardPage = () => {
                       disabled={productSaving}
                       onClick={async () => {
                         if (!productForm.name.trim() || productForm.price === '') {
-                          alert('Nom et prix requis');
+                          alert(t('posNamePriceRequired'));
                           return;
                         }
                         setProductSaving(true);
@@ -567,7 +589,7 @@ const DashboardPage = () => {
                           setEditingProductId(null);
                           loadData();
                         } catch (err) {
-                          alert(err.response?.data?.error || 'Erreur sauvegarde');
+                          alert(err.response?.data?.error || t('posSaveError'));
                         } finally {
                           setProductSaving(false);
                         }
@@ -581,7 +603,7 @@ const DashboardPage = () => {
                         cursor: 'pointer',
                       }}
                     >
-                      {productSaving ? '…' : editingProductId ? 'Enregistrer' : 'Ajouter produit'}
+                      {productSaving ? '…' : editingProductId ? t('save') : t('posAddProduct')}
                     </button>
                     {editingProductId && (
                       <button
@@ -605,7 +627,7 @@ const DashboardPage = () => {
                           cursor: 'pointer',
                         }}
                       >
-                        Annuler
+                        {t('cancel')}
                       </button>
                     )}
                   </div>
@@ -613,7 +635,7 @@ const DashboardPage = () => {
 
                 {/* Liste produits */}
                 <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.8rem', color: '#3A2E25', marginBottom: '1rem' }}>
-                  Produits
+                  {t('products')}
                 </h3>
                 {products.map((product) => (
                   <div key={product.id} style={styles.productCard}>
@@ -625,7 +647,7 @@ const DashboardPage = () => {
                         {Number(product.price).toFixed(2)}€ · {product.category || 'Autres'}
                       </div>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                       <button
                         type="button"
                         onClick={() => {
@@ -649,18 +671,18 @@ const DashboardPage = () => {
                           cursor: 'pointer',
                         }}
                       >
-                        Modifier
+                        {t('edit')}
                       </button>
                       <button
                         type="button"
                         onClick={async () => {
-                          if (!confirm(`Supprimer « ${product.name} » ?`)) return;
+                          if (!confirm(t('posDeleteProductConfirm', { name: product.name }))) return;
                           try {
                             const res = await deleteProduct(product.id);
                             if (res.softDeleted) alert(res.message);
                             loadData();
                           } catch (err) {
-                            alert(err.response?.data?.error || 'Erreur');
+                            alert(err.response?.data?.error || t('error'));
                           }
                         }}
                         style={{
@@ -673,12 +695,12 @@ const DashboardPage = () => {
                           cursor: 'pointer',
                         }}
                       >
-                        Suppr.
+                        {t('posDeleteShort')}
                       </button>
                       <div
                         style={{ ...styles.toggle, ...(product.available && styles.toggleActive) }}
                         onClick={() => handleToggleProduct(product.id, !product.available)}
-                        title={product.available ? 'Disponible' : 'Épuisé'}
+                        title={product.available ? t('posAvailable') : t('posExhausted')}
                       >
                         <div style={{ ...styles.toggleDot, ...(product.available && styles.toggleDotActive) }}></div>
                       </div>
@@ -846,8 +868,8 @@ const DashboardPage = () => {
                             cursor: 'pointer'
                           }}
                         >
-                          ✏️ {t('edit')}
-                        </button>
+                          ✏️                         Modifier
+                      </button>
                       </div>
                     )}
                     <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: '#1C1C1C', opacity: 0.6 }}>
@@ -992,7 +1014,7 @@ const DashboardPage = () => {
                       )}
                     </div>
                     <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.85rem', color: '#1C1C1C', opacity: 0.6 }}>
-                      Inscrit le {new Date(user.created_at).toLocaleDateString('fr-FR')}
+                      {t('posRegisteredOn')} {new Date(user.created_at).toLocaleDateString()}
                     </div>
                   </div>
                 ))}
@@ -1003,7 +1025,7 @@ const DashboardPage = () => {
               <div>
                 <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
                   <p style={{ fontFamily: "'DM Sans', sans-serif", color: '#1C1C1C', opacity: 0.75, maxWidth: '640px' }}>
-                    Règles tarifaires de la caisse. Les changements s’appliquent immédiatement, sans redéploiement.
+                    {t('posSettingsIntro')}
                   </p>
                   <Link
                     to="/pos"
@@ -1018,22 +1040,22 @@ const DashboardPage = () => {
                       textTransform: 'uppercase',
                     }}
                   >
-                    Ouvrir la caisse
+                    {t('posOpenCashier')}
                   </Link>
                 </div>
                 {[
-                  ['residentDiscountPercent', 'Réduction résident (%)'],
-                  ['workerDiscountPercent', 'Réduction travailleur (%)'],
-                  ['earlyBirdDiscountPercent', 'Réduction Vroege Vogel (%)'],
-                  ['earlyBirdEndTime', 'Fin Vroege Vogel (HH:MM)'],
-                  ['lateSurchargePercent', 'Majoration après 11h (%)'],
-                  ['lateSurchargeStartTime', 'Début majoration (HH:MM)'],
-                  ['shopName', 'Nom sur ticket'],
-                  ['shopAddress', 'Adresse sur ticket'],
-                ].map(([key, label]) => (
+                  ['residentDiscountPercent', 'posResidentDiscount'],
+                  ['workerDiscountPercent', 'posWorkerDiscount'],
+                  ['earlyBirdDiscountPercent', 'posEarlyBirdDiscount'],
+                  ['earlyBirdEndTime', 'posEarlyBirdEnd'],
+                  ['lateSurchargePercent', 'posLatePercent'],
+                  ['lateSurchargeStartTime', 'posLateStart'],
+                  ['shopName', 'posShopName'],
+                  ['shopAddress', 'posShopAddress'],
+                ].map(([key, labelKey]) => (
                   <div key={key} style={{ marginBottom: '1rem' }}>
                     <label style={{ display: 'block', marginBottom: '0.4rem', fontFamily: "'DM Sans', sans-serif", fontSize: '0.85rem', color: '#3A2E25' }}>
-                      {label}
+                      {t(labelKey)}
                     </label>
                     <input
                       value={posSettings[key] ?? ''}
@@ -1067,10 +1089,10 @@ const DashboardPage = () => {
                       };
                       const res = await updatePosSettings(payload);
                       setPosSettings(res.settings);
-                      alert('Paramètres caisse enregistrés');
+                      alert(t('posSettingsSaved'));
                     } catch (error) {
                       console.error(error);
-                      alert('Erreur sauvegarde');
+                      alert(t('posSettingsSaveError'));
                     } finally {
                       setPosSaving(false);
                     }
@@ -1083,7 +1105,7 @@ const DashboardPage = () => {
                     marginTop: '0.5rem',
                   }}
                 >
-                  {posSaving ? 'Enregistrement…' : 'Enregistrer'}
+                  {posSaving ? t('posSaving') : t('save')}
                 </button>
               </div>
             )}

@@ -1,29 +1,38 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { getPosOrder, getPosOrders } from '../services/posService';
+import { getPosOrder, getPosOrders, getPosSettings } from '../services/posService';
 import { formatCents } from '../lib/pricingEngine';
+import { useLanguage } from '../context/LanguageContext';
 import PosTicket from './PosTicket';
-import { getPosSettings } from '../services/posService';
 import './pos.css';
 
-const CUSTOMER_LABEL = {
-  STANDARD: 'Standard',
-  RESIDENT: 'Résident',
-  WORKER: 'Travailleur',
-  REGISTERED: 'Enregistré',
-};
-
-const PAY_LABEL = {
-  CARD: 'Carte',
-  CASH: 'Espèces',
-  OTHER: 'Autre',
-};
+const localeMap = { fr: 'fr-BE', nl: 'nl-BE', en: 'en-GB' };
 
 export default function PosOrdersPage() {
+  const { t, language } = useLanguage();
   const [orders, setOrders] = useState([]);
   const [selected, setSelected] = useState(null);
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  const customerLabel = {
+    STANDARD: t('posCustomerStandard'),
+    RESIDENT: t('posCustomerResident'),
+    WORKER: t('posCustomerWorker'),
+    REGISTERED: t('posCustomerRegistered'),
+  };
+
+  const payLabel = {
+    CARD: t('posCard'),
+    CASH: t('posCash'),
+    OTHER: t('posOther'),
+  };
+
+  const orderTypeLabel = {
+    DINE_IN: t('posTicketDineIn'),
+    TAKEAWAY: t('posTicketTakeaway'),
+    DELIVERY: t('posTicketDelivery'),
+  };
 
   useEffect(() => {
     (async () => {
@@ -48,49 +57,53 @@ export default function PosOrdersPage() {
     }
   };
 
+  const locale = localeMap[language] || 'fr-BE';
+
   return (
     <div className="pos-orders-page">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-        <h1>Historique caisse</h1>
-        <Link to="/pos" className="pos-btn pos-btn-primary" style={{ textDecoration: 'none', display: 'inline-flex', alignItems: 'center', padding: '0 1.4rem' }}>
-          Retour caisse
+      <div className="pos-orders-header">
+        <h1>{t('posOrdersTitle')}</h1>
+        <Link to="/pos" className="pos-btn pos-btn-primary pos-orders-back">
+          {t('posBackToPos')}
         </Link>
       </div>
 
       {loading ? (
         <div className="pos-spinner" />
       ) : (
-        <table className="pos-orders-table">
-          <thead>
-            <tr>
-              <th>N°</th>
-              <th>Heure</th>
-              <th>Total</th>
-              <th>Client</th>
-              <th>Paiement</th>
-              <th>Employé</th>
-              <th>Statut</th>
-            </tr>
-          </thead>
-          <tbody>
-            {orders.map((o) => (
-              <tr key={o.id} onClick={() => openOrder(o.id)}>
-                <td>{o.orderNumber}</td>
-                <td>{new Date(o.createdAt).toLocaleString('fr-BE')}</td>
-                <td>{formatCents(o.totalCents)}</td>
-                <td>{CUSTOMER_LABEL[o.customerType] || o.customerType}</td>
-                <td>{PAY_LABEL[o.paymentMethod] || o.paymentMethod || '—'}</td>
-                <td>{o.cashierName || '—'}</td>
-                <td>{o.status}</td>
-              </tr>
-            ))}
-            {!orders.length && (
+        <div className="pos-orders-table-wrap">
+          <table className="pos-orders-table">
+            <thead>
               <tr>
-                <td colSpan={7}>Aucune commande caisse</td>
+                <th>{t('posColNumber')}</th>
+                <th>{t('posColTime')}</th>
+                <th>{t('posColTotal')}</th>
+                <th>{t('posColCustomer')}</th>
+                <th>{t('posColPayment')}</th>
+                <th>{t('posColCashier')}</th>
+                <th>{t('posColStatus')}</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {orders.map((o) => (
+                <tr key={o.id} onClick={() => openOrder(o.id)}>
+                  <td>{o.orderNumber}</td>
+                  <td>{new Date(o.createdAt).toLocaleString(locale)}</td>
+                  <td>{formatCents(o.totalCents)}</td>
+                  <td>{customerLabel[o.customerType] || o.customerType}</td>
+                  <td>{payLabel[o.paymentMethod] || o.paymentMethod || '—'}</td>
+                  <td>{o.cashierName || '—'}</td>
+                  <td>{o.status}</td>
+                </tr>
+              ))}
+              {!orders.length && (
+                <tr>
+                  <td colSpan={7}>{t('posNoOrders')}</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {selected && (
@@ -98,7 +111,8 @@ export default function PosOrdersPage() {
           <div className="pos-modal" onClick={(e) => e.stopPropagation()}>
             <h3>{selected.orderNumber}</h3>
             <p className="lead">
-              {CUSTOMER_LABEL[selected.customerType]} · {selected.orderType} · {selected.cashierName}
+              {customerLabel[selected.customerType]} · {orderTypeLabel[selected.orderType] || selected.orderType} ·{' '}
+              {selected.cashierName}
             </p>
             {selected.items.map((it) => (
               <div key={it.id} className="pos-total-row">
@@ -110,43 +124,43 @@ export default function PosOrdersPage() {
             ))}
             <div className="pos-totals" style={{ marginTop: '0.8rem' }}>
               <div className="pos-total-row">
-                <span>Sous-total</span>
+                <span>{t('posSubtotal')}</span>
                 <span>{formatCents(selected.subtotalCents)}</span>
               </div>
               {selected.customerDiscountCents > 0 && (
                 <div className="pos-total-row discount">
-                  <span>Réduction client</span>
+                  <span>{t('posCustomerDiscount')}</span>
                   <span>−{formatCents(selected.customerDiscountCents)}</span>
                 </div>
               )}
               {selected.earlyBirdDiscountCents > 0 && (
                 <div className="pos-total-row discount">
-                  <span>Vroege Vogel</span>
+                  <span>{t('posEarlyBird')}</span>
                   <span>−{formatCents(selected.earlyBirdDiscountCents)}</span>
                 </div>
               )}
               {selected.lateSurchargeCents > 0 && (
                 <div className="pos-total-row surcharge">
-                  <span>Majoration</span>
+                  <span>{t('posSurcharge')}</span>
                   <span>+{formatCents(selected.lateSurchargeCents)}</span>
                 </div>
               )}
               <div className="pos-total-final">
-                <label>Total</label>
+                <label>{t('posTotal')}</label>
                 <strong>{formatCents(selected.totalCents)}</strong>
               </div>
             </div>
             {selected.appliedRules?.length > 0 && (
               <p className="lead" style={{ marginTop: '0.8rem', fontSize: '0.85rem' }}>
-                Règles : {selected.appliedRules.map((r) => r.type).join(', ')}
+                {t('posRules')} : {selected.appliedRules.map((r) => r.type).join(', ')}
               </p>
             )}
             <div className="pos-modal-actions" style={{ marginTop: '1rem' }}>
               <button type="button" className="pos-btn pos-btn-secondary" onClick={() => window.print()}>
-                Imprimer
+                {t('posPrint')}
               </button>
               <button type="button" className="pos-btn pos-btn-primary" onClick={() => setSelected(null)}>
-                Fermer
+                {t('posClose')}
               </button>
             </div>
             <PosTicket order={selected} settings={settings} />

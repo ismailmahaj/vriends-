@@ -1,8 +1,9 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { posTranslations } from '../i18n/posTranslations';
 
 const LanguageContext = createContext();
 
-const translations = {
+const baseTranslations = {
   fr: {
     // Navigation
     menu: 'Menu',
@@ -536,6 +537,12 @@ const translations = {
   },
 };
 
+const translations = {
+  fr: { ...baseTranslations.fr, ...posTranslations.fr },
+  nl: { ...baseTranslations.nl, ...posTranslations.nl },
+  en: { ...baseTranslations.en, ...posTranslations.en },
+};
+
 export const LanguageProvider = ({ children }) => {
   const [language, setLanguage] = useState(() => {
     // Récupérer la langue depuis localStorage ou utiliser 'fr' par défaut
@@ -548,8 +555,14 @@ export const LanguageProvider = ({ children }) => {
     localStorage.setItem('vriends_language', language);
   }, [language]);
 
-  const t = (key) => {
-    return translations[language]?.[key] || key;
+  const t = (key, vars) => {
+    let text = translations[language]?.[key] || translations.fr?.[key] || key;
+    if (vars && typeof text === 'string') {
+      Object.entries(vars).forEach(([k, v]) => {
+        text = text.replace(`{${k}}`, String(v));
+      });
+    }
+    return text;
   };
 
   const changeLanguage = (lang) => {

@@ -1,34 +1,57 @@
 import { formatCents } from '../lib/pricingEngine';
+import { useLanguage } from '../context/LanguageContext';
 
-const ORDER_TYPE_LABEL = {
-  DINE_IN: 'Sur place',
-  TAKEAWAY: 'À emporter',
-  DELIVERY: 'Livraison',
-};
-
-const PAY_LABEL = {
-  CARD: 'Carte',
-  CASH: 'Espèces',
-  OTHER: 'Autre',
-};
+const localeMap = { fr: 'fr-BE', nl: 'nl-BE', en: 'en-GB' };
 
 const PosTicket = ({ order, settings }) => {
+  const { t, language } = useLanguage();
+
   if (!order) return null;
 
   const shopName = settings?.shopName || 'VRIENDS';
   const shopAddress = settings?.shopAddress || 'Poperinge, Belgique';
   const date = order.paidAt || order.createdAt;
+  const locale = localeMap[language] || 'fr-BE';
+
+  const orderTypeLabel = {
+    DINE_IN: t('posTicketDineIn'),
+    TAKEAWAY: t('posTicketTakeaway'),
+    DELIVERY: t('posTicketDelivery'),
+  };
+
+  const payLabel = {
+    CARD: t('posCard'),
+    CASH: t('posCash'),
+    OTHER: t('posOther'),
+  };
+
+  const customerLabel = {
+    STANDARD: t('posCustomerStandard'),
+    RESIDENT: t('posCustomerResident'),
+    WORKER: t('posCustomerWorker'),
+    REGISTERED: t('posCustomerRegistered'),
+  };
 
   return (
     <div className="pos-ticket" id="pos-ticket-print">
       <div className="center bold">{shopName}</div>
       <div className="center">{shopAddress}</div>
       <div className="line" />
-      <div>Date : {date ? new Date(date).toLocaleString('fr-BE') : ''}</div>
-      <div>Commande : {order.orderNumber}</div>
-      <div>Employé : {order.cashierName || '—'}</div>
-      <div>Client : {order.customerType}</div>
-      <div>Type : {ORDER_TYPE_LABEL[order.orderType] || order.orderType}</div>
+      <div>
+        {t('posTicketDate')} : {date ? new Date(date).toLocaleString(locale) : ''}
+      </div>
+      <div>
+        {t('posTicketOrder')} : {order.orderNumber}
+      </div>
+      <div>
+        {t('posTicketCashier')} : {order.cashierName || '—'}
+      </div>
+      <div>
+        {t('posTicketCustomer')} : {customerLabel[order.customerType] || order.customerType}
+      </div>
+      <div>
+        {t('posTicketType')} : {orderTypeLabel[order.orderType] || order.orderType}
+      </div>
       <div className="line" />
       {order.items?.map((item) => (
         <div key={item.id || `${item.productId}-${item.productNameSnapshot}`}>
@@ -47,47 +70,49 @@ const PosTicket = ({ order, settings }) => {
       ))}
       <div className="line" />
       <div className="row">
-        <span>Sous-total</span>
+        <span>{t('posSubtotal')}</span>
         <span>{formatCents(order.subtotalCents)}</span>
       </div>
       {order.customerDiscountCents > 0 && (
         <div className="row">
-          <span>Réduction client</span>
+          <span>{t('posCustomerDiscount')}</span>
           <span>-{formatCents(order.customerDiscountCents)}</span>
         </div>
       )}
       {order.earlyBirdDiscountCents > 0 && (
         <div className="row">
-          <span>Vroege Vogel</span>
+          <span>{t('posEarlyBird')}</span>
           <span>-{formatCents(order.earlyBirdDiscountCents)}</span>
         </div>
       )}
       {order.lateSurchargeCents > 0 && (
         <div className="row">
-          <span>Majoration</span>
+          <span>{t('posSurcharge')}</span>
           <span>+{formatCents(order.lateSurchargeCents)}</span>
         </div>
       )}
       <div className="line" />
       <div className="row bold">
-        <span>TOTAL</span>
+        <span>{t('posTotal')}</span>
         <span>{formatCents(order.totalCents)}</span>
       </div>
-      <div>Paiement : {PAY_LABEL[order.paymentMethod] || order.paymentMethod || '—'}</div>
+      <div>
+        {t('posTicketPayment')} : {payLabel[order.paymentMethod] || order.paymentMethod || '—'}
+      </div>
       {order.paymentMethod === 'CASH' && order.cashReceivedCents != null && (
         <>
           <div className="row">
-            <span>Reçu</span>
+            <span>{t('posTicketReceived')}</span>
             <span>{formatCents(order.cashReceivedCents)}</span>
           </div>
           <div className="row">
-            <span>Rendu</span>
+            <span>{t('posTicketChange')}</span>
             <span>{formatCents(order.cashChangeCents || 0)}</span>
           </div>
         </>
       )}
       <div className="line" />
-      <div className="center">Merci et à bientôt !</div>
+      <div className="center">{t('posTicketThanks')}</div>
     </div>
   );
 };

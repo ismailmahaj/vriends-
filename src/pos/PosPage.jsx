@@ -17,6 +17,7 @@ import {
   CUSTOMER_TYPES,
 } from '../lib/pricingEngine';
 import { useAuth } from '../context/AuthContext';
+import { useLanguage } from '../context/LanguageContext';
 import PosTicket from './PosTicket';
 import './pos.css';
 
@@ -40,6 +41,7 @@ function makeIdempotencyKey() {
 function PosShell() {
   const { state, dispatch, pricing, clearDraftStorage } = usePos();
   const { user, canManagePos } = useAuth();
+  const { t, language } = useLanguage();
   const navigate = useNavigate();
   const searchRef = useRef(null);
   const payingLock = useRef(false);
@@ -79,11 +81,11 @@ function PosShell() {
       setHeldOrders(Array.isArray(held) ? held : []);
     } catch (err) {
       console.error(err);
-      showToast('Erreur de chargement');
+      showToast(t('posLoadError'));
     } finally {
       setLoading(false);
     }
-  }, [dispatch]);
+  }, [dispatch, t]);
 
   useEffect(() => {
     loadAll();
@@ -143,7 +145,7 @@ function PosShell() {
       const receivedCents = Math.round(parseFloat(String(cashReceived).replace(',', '.')) * 100) || 0;
       const change = calculateCashChange(pricing.finalTotalCents, receivedCents);
       if (!change.isSufficient) {
-        showToast('Montant reçu insuffisant');
+        showToast(t('posInsufficientCash'));
         return;
       }
     }
@@ -175,10 +177,10 @@ function PosShell() {
       setSuccessOrder(result.order);
       dispatch({ type: 'CLEAR' });
       clearDraftStorage();
-      showToast(result.paymentMessage || 'Paiement accepté');
+      showToast(result.paymentMessage || t('posPaymentAccepted'));
     } catch (err) {
       console.error(err);
-      showToast(err.response?.data?.error || 'Erreur paiement');
+      showToast(err.response?.data?.error || t('posPaymentError'));
     } finally {
       setBusy(false);
       setTimeout(() => {
@@ -206,9 +208,9 @@ function PosShell() {
       clearDraftStorage();
       const held = await getPosOrders({ status: 'held', limit: 20 });
       setHeldOrders(held);
-      showToast('Commande mise en attente');
+      showToast(t('posOrderHeld'));
     } catch (err) {
-      showToast(err.response?.data?.error || 'Erreur');
+      showToast(err.response?.data?.error || t('error'));
     } finally {
       setBusy(false);
     }
@@ -216,7 +218,7 @@ function PosShell() {
 
   const resumeHeld = (order) => {
     if (state.items.length) {
-      const ok = window.confirm('Remplacer le panier actuel par la commande en attente ?');
+      const ok = window.confirm(t('posReplaceCartConfirm'));
       if (!ok) return;
     }
     dispatch({
@@ -238,12 +240,12 @@ function PosShell() {
     // Annuler l'ancienne held côté serveur pour éviter doublon à la revalidation
     cancelPosOrder(order.id).catch(() => {});
     setHeldOrders((prev) => prev.filter((h) => h.id !== order.id));
-    showToast(`Reprise ${order.orderNumber}`);
+    showToast(`${t('posResumeHeld')} ${order.orderNumber}`);
   };
 
   const cancelCurrent = () => {
     if (!state.items.length) return;
-    const ok = window.confirm('Annuler la commande en cours ?');
+    const ok = window.confirm(t('posCancelOrderConfirm'));
     if (!ok) return;
     dispatch({ type: 'CLEAR' });
     clearDraftStorage();
@@ -255,7 +257,7 @@ function PosShell() {
       setStats(data);
       setStatsOpen(true);
     } catch {
-      showToast('Stats réservées aux managers');
+      showToast(t('posStatsForbidden'));
     }
   };
 
@@ -291,7 +293,8 @@ function PosShell() {
     return calculateCashChange(pricing.finalTotalCents, receivedCents);
   }, [cashReceived, pricing.finalTotalCents]);
 
-  const clockLabel = state.clock.toLocaleTimeString('fr-BE', {
+  const clockLocale = language === 'nl' ? 'nl-BE' : language === 'en' ? 'en-GB' : 'fr-BE';
+  const clockLabel = state.clock.toLocaleTimeString(clockLocale, {
     hour: '2-digit',
     minute: '2-digit',
   });
@@ -307,15 +310,15 @@ function PosShell() {
       {/* GAUCHE */}
       <aside className="pos-col pos-left">
         <div className="pos-brand">
-          Vriends <span>Caisse</span>
+          Vriends <span>{t('posBrand')}</span>
         </div>
         <div className="pos-clock">
-          {clockLabel} · {user?.name || 'Employé'}
+          {clockLabel} · {user?.name || t('posEmployee')}
         </div>
         <input
           ref={searchRef}
           className="pos-search"
-          placeholder="Rechercher (F2)"
+          placeholder={t('posSearchPlaceholder')}
           value={state.search}
           onChange={(e) => dispatch({ type: 'SET_SEARCH', payload: e.target.value })}
         />
@@ -334,15 +337,15 @@ function PosShell() {
         </div>
         <div className="pos-left-actions">
           <Link to="/pos/orders" className="pos-ghost-btn" style={{ textAlign: 'center', textDecoration: 'none' }}>
-            Historique
+            {t('posHistory')}
           </Link>
           {canManagePos && (
             <button type="button" className="pos-ghost-btn" onClick={openStats}>
-              Statistiques
+              {t('posStats')}
             </button>
           )}
           <button type="button" className="pos-ghost-btn" onClick={() => navigate('/')}>
-            Quitter
+            {t('posQuit')}
           </button>
         </div>
       </aside>
@@ -351,9 +354,9 @@ function PosShell() {
       <main className="pos-col pos-center">
         <div className="pos-center-top">
           {[
-            { key: CUSTOMER_TYPES.STANDARD, label: 'Standard' },
-            { key: CUSTOMER_TYPES.RESIDENT, label: 'Résident' },
-            { key: CUSTOMER_TYPES.WORKER, label: 'Travailleur' },
+            { key: CUSTOMER_TYPES.STANDARD, label: t('posCustomerStandard') },
+            { key: CUSTOMER_TYPES.RESIDENT, label: t('posCustomerResident') },
+            { key: CUSTOMER_TYPES.WORKER, label: t('posCustomerWorker') },
           ].map((c) => (
             <button
               key={c.key}
@@ -369,19 +372,19 @@ function PosShell() {
             className={`pos-pill ${state.orderType === 'DINE_IN' ? 'active' : ''}`}
             onClick={() => dispatch({ type: 'SET_ORDER_TYPE', payload: 'DINE_IN' })}
           >
-            Sur place
+            {t('posDineIn')}
           </button>
           <button
             type="button"
             className={`pos-pill ${state.orderType === 'TAKEAWAY' ? 'active' : ''}`}
             onClick={() => dispatch({ type: 'SET_ORDER_TYPE', payload: 'TAKEAWAY' })}
           >
-            À emporter
+            {t('posTakeaway')}
           </button>
-          {earlyBirdActive && <div className="pos-rule-badge">🐦 Vroege Vogel -{pricing.earlyBirdDiscountPercent} %</div>}
+          {earlyBirdActive && <div className="pos-rule-badge">🐦 {t('posEarlyBirdBadge')} -{pricing.earlyBirdDiscountPercent} %</div>}
           {lateActive && (
             <div className="pos-rule-badge late">
-              Majoration après 11h : +{pricing.lateSurchargePercent} %
+              {t('posLateSurchargeBadge')} : +{pricing.lateSurchargePercent} %
             </div>
           )}
         </div>
@@ -411,14 +414,14 @@ function PosShell() {
                     const updated = await togglePosFavorite(product.id);
                     setProducts((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
                   } catch {
-                    showToast('Erreur favori');
+                    showToast(t('posFavoriteError'));
                   }
                 }}
-                aria-label="Favori"
+                aria-label={t('posFavorite')}
               >
                 {product.isFavorite ? '★' : '☆'}
               </button>
-              {!product.available && <span className="pos-soldout">ÉPUISÉ</span>}
+              {!product.available && <span className="pos-soldout">{t('posSoldOut')}</span>}
               <div className="pos-product-emoji">{productEmoji(product)}</div>
               <div className="pos-product-name">{product.name}</div>
               <div className="pos-product-meta">{product.category}</div>
@@ -426,7 +429,7 @@ function PosShell() {
             </div>
           ))}
           {!filteredProducts.length && !loading && (
-            <div className="pos-cart-empty">Aucun produit trouvé</div>
+            <div className="pos-cart-empty">{t('posNoProducts')}</div>
           )}
         </div>
       </main>
@@ -434,7 +437,7 @@ function PosShell() {
       {/* DROITE */}
       <aside className="pos-col pos-right">
         <div className="pos-right-header">
-          <h2>Panier</h2>
+          <h2>{t('posCart')}</h2>
           <span>{state.customerType}</span>
         </div>
 
@@ -442,7 +445,7 @@ function PosShell() {
           <div className="pos-held">
             {heldOrders.map((h) => (
               <button key={h.id} type="button" className="pos-held-item" onClick={() => resumeHeld(h)}>
-                ⏸ {h.orderNumber} · {formatCents(h.totalCents)} · reprendre
+                ⏸ {h.orderNumber} · {formatCents(h.totalCents)} · {t('posResumeHeld')}
               </button>
             ))}
           </div>
@@ -450,7 +453,7 @@ function PosShell() {
 
         <div className="pos-cart-items">
           {!state.items.length && (
-            <div className="pos-cart-empty">Ajoutez un produit pour commencer</div>
+            <div className="pos-cart-empty">{t('posAddProductHint')}</div>
           )}
           {state.items.map((item) => (
             <div
@@ -500,7 +503,7 @@ function PosShell() {
                   dispatch({ type: 'REMOVE_LINE', payload: item.key });
                 }}
               >
-                Supprimer
+                {t('posRemove')}
               </button>
             </div>
           ))}
@@ -508,42 +511,42 @@ function PosShell() {
 
         <div className="pos-totals">
           <div className="pos-total-row">
-            <span>Sous-total</span>
+            <span>{t('posSubtotal')}</span>
             <span>{formatCents(pricing.subtotalCents)}</span>
           </div>
           {pricing.customerDiscountCents > 0 && (
             <div className="pos-total-row discount">
-              <span>Réduction client (−{pricing.customerDiscountPercent} %)</span>
+              <span>{t('posCustomerDiscount')} (−{pricing.customerDiscountPercent} %)</span>
               <span>−{formatCents(pricing.customerDiscountCents)}</span>
             </div>
           )}
           {pricing.earlyBirdDiscountCents > 0 && (
             <div className="pos-total-row discount">
-              <span>Vroege Vogel (−{pricing.earlyBirdDiscountPercent} %)</span>
+              <span>{t('posEarlyBird')} (−{pricing.earlyBirdDiscountPercent} %)</span>
               <span>−{formatCents(pricing.earlyBirdDiscountCents)}</span>
             </div>
           )}
           {pricing.lateSurchargeCents > 0 && (
             <div className="pos-total-row surcharge">
-              <span>Majoration après 11h (+{pricing.lateSurchargePercent} %)</span>
+              <span>{t('posLateSurcharge')} (+{pricing.lateSurchargePercent} %)</span>
               <span>+{formatCents(pricing.lateSurchargeCents)}</span>
             </div>
           )}
           <div className="pos-total-final">
-            <label>Total à payer</label>
+            <label>{t('posTotalDue')}</label>
             <strong>{formatCents(pricing.finalTotalCents)}</strong>
           </div>
         </div>
 
         <div className="pos-actions">
           <button type="button" className="pos-btn pos-btn-secondary" onClick={handleHold} disabled={!state.items.length}>
-            En attente
+            {t('posHold')}
           </button>
           <button type="button" className="pos-btn pos-btn-danger" onClick={cancelCurrent} disabled={!state.items.length}>
-            Annuler
+            {t('posCancel')}
           </button>
           <button type="button" className="pos-btn pos-btn-primary" onClick={openPayment} disabled={!state.items.length}>
-            Payer (F4)
+            {t('posPay')}
           </button>
         </div>
       </aside>
@@ -552,8 +555,8 @@ function PosShell() {
       {paymentOpen && (
         <div className="pos-modal-backdrop" onClick={() => !busy && setPaymentOpen(false)}>
           <div className="pos-modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Paiement</h3>
-            <p className="lead">Total : {formatCents(pricing.finalTotalCents)}</p>
+            <h3>{t('posPayment')}</h3>
+            <p className="lead">{t('posTotal')} : {formatCents(pricing.finalTotalCents)}</p>
             <div className="pos-pay-methods">
               {['CARD', 'CASH', 'OTHER'].map((m) => (
                 <button
@@ -562,13 +565,13 @@ function PosShell() {
                   className={payMethod === m ? 'active' : ''}
                   onClick={() => setPayMethod(m)}
                 >
-                  {m === 'CARD' ? 'Carte' : m === 'CASH' ? 'Espèces' : 'Autre'}
+                  {m === 'CARD' ? t('posCard') : m === 'CASH' ? t('posCash') : t('posOther')}
                 </button>
               ))}
             </div>
             {payMethod === 'CASH' && (
               <>
-                <label>Montant reçu (€)</label>
+                <label>{t('posAmountReceived')}</label>
                 <input
                   className="pos-cash-input"
                   inputMode="decimal"
@@ -586,21 +589,21 @@ function PosShell() {
                     type="button"
                     onClick={() => setCashReceived((pricing.finalTotalCents / 100).toFixed(2))}
                   >
-                    Exact
+                    {t('posExact')}
                   </button>
                 </div>
                 <div className="pos-change">
-                  <span>À rendre</span>
+                  <span>{t('posChangeDue')}</span>
                   <span>{formatCents(cashChange.changeCents)}</span>
                 </div>
               </>
             )}
             <div className="pos-modal-actions">
               <button type="button" className="pos-btn pos-btn-secondary" onClick={() => setPaymentOpen(false)}>
-                Retour
+                {t('posBack')}
               </button>
               <button type="button" className="pos-btn pos-btn-primary" onClick={handlePay} disabled={busy}>
-                Valider
+                {t('posValidate')}
               </button>
             </div>
           </div>
@@ -613,29 +616,29 @@ function PosShell() {
           <div className="pos-modal">
             <div className="pos-success">
               <div className="pos-success-icon">✓</div>
-              <h3>Paiement accepté</h3>
-              <div className="order-no">Commande {successOrder.orderNumber}</div>
+              <h3>{t('posPaymentAccepted')}</h3>
+              <div className="order-no">{t('posOrder')} {successOrder.orderNumber}</div>
               <div className="pos-modal-actions">
                 <button
                   type="button"
                   className="pos-btn pos-btn-secondary"
                   onClick={printTicket}
                 >
-                  Imprimer ticket
+                  {t('posPrintTicket')}
                 </button>
                 <button
                   type="button"
                   className="pos-btn pos-btn-secondary"
                   onClick={printTicket}
                 >
-                  Réimprimer
+                  {t('posReprint')}
                 </button>
                 <button
                   type="button"
                   className="pos-btn pos-btn-primary"
                   onClick={() => setSuccessOrder(null)}
                 >
-                  Nouvelle commande
+                  {t('posNewOrder')}
                 </button>
               </div>
             </div>
@@ -657,19 +660,19 @@ function PosShell() {
       {statsOpen && stats && (
         <div className="pos-modal-backdrop" onClick={() => setStatsOpen(false)}>
           <div className="pos-modal" onClick={(e) => e.stopPropagation()}>
-            <h3>Statistiques du jour</h3>
+            <h3>{t('posStatsToday')}</h3>
             <p className="lead">{stats.date}</p>
             <div className="pos-totals" style={{ borderTop: 'none' }}>
-              <div className="pos-total-row"><span>CA</span><span>{formatCents(stats.revenueCents)}</span></div>
-              <div className="pos-total-row"><span>Commandes</span><span>{stats.ordersCount}</span></div>
-              <div className="pos-total-row"><span>Panier moyen</span><span>{formatCents(stats.averageBasketCents)}</span></div>
-              <div className="pos-total-row"><span>Carte</span><span>{stats.payments.card.count} · {formatCents(stats.payments.card.amountCents)}</span></div>
-              <div className="pos-total-row"><span>Espèces</span><span>{stats.payments.cash.count} · {formatCents(stats.payments.cash.amountCents)}</span></div>
-              <div className="pos-total-row discount"><span>Réductions</span><span>{formatCents(stats.discountsCents)}</span></div>
+              <div className="pos-total-row"><span>{t('posRevenue')}</span><span>{formatCents(stats.revenueCents)}</span></div>
+              <div className="pos-total-row"><span>{t('posOrdersCount')}</span><span>{stats.ordersCount}</span></div>
+              <div className="pos-total-row"><span>{t('posAvgBasket')}</span><span>{formatCents(stats.averageBasketCents)}</span></div>
+              <div className="pos-total-row"><span>{t('posCard')}</span><span>{stats.payments.card.count} · {formatCents(stats.payments.card.amountCents)}</span></div>
+              <div className="pos-total-row"><span>{t('posCash')}</span><span>{stats.payments.cash.count} · {formatCents(stats.payments.cash.amountCents)}</span></div>
+              <div className="pos-total-row discount"><span>{t('posDiscounts')}</span><span>{formatCents(stats.discountsCents)}</span></div>
             </div>
             {stats.topProducts?.length > 0 && (
               <>
-                <p className="lead" style={{ marginTop: '1rem' }}>Top produits</p>
+                <p className="lead" style={{ marginTop: '1rem' }}>{t('posTopProducts')}</p>
                 {stats.topProducts.map((p) => (
                   <div key={p.name} className="pos-total-row">
                     <span>{p.name}</span>
@@ -680,7 +683,7 @@ function PosShell() {
             )}
             <div className="pos-modal-actions" style={{ marginTop: '1rem' }}>
               <button type="button" className="pos-btn pos-btn-primary" onClick={() => setStatsOpen(false)}>
-                Fermer
+                {t('posClose')}
               </button>
             </div>
           </div>
@@ -693,6 +696,7 @@ function PosShell() {
 }
 
 function OptionsModal({ product, onClose, onConfirm }) {
+  const { t } = useLanguage();
   const schema = product.optionsSchema || [];
   const [values, setValues] = useState(() => {
     const init = {};
@@ -706,7 +710,7 @@ function OptionsModal({ product, onClose, onConfirm }) {
     <div className="pos-modal-backdrop" onClick={onClose}>
       <div className="pos-modal" onClick={(e) => e.stopPropagation()}>
         <h3>{product.name}</h3>
-        <p className="lead">Choisissez les options</p>
+        <p className="lead">{t('posChooseOptions')}</p>
         {schema.map((opt) => (
           <div key={opt.name} style={{ marginBottom: '0.9rem' }}>
             <div style={{ marginBottom: '0.4rem', fontWeight: 500 }}>{opt.name}</div>
@@ -729,10 +733,10 @@ function OptionsModal({ product, onClose, onConfirm }) {
         ))}
         <div className="pos-modal-actions">
           <button type="button" className="pos-btn pos-btn-secondary" onClick={onClose}>
-            Annuler
+            {t('posCancel')}
           </button>
           <button type="button" className="pos-btn pos-btn-primary" onClick={() => onConfirm(values)}>
-            Ajouter
+            {t('posAdd')}
           </button>
         </div>
       </div>
