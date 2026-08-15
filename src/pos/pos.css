@@ -233,6 +233,14 @@
   line-height: 1;
 }
 
+.pos-product-img {
+  width: 100%;
+  height: 72px;
+  object-fit: cover;
+  border-radius: 12px;
+  background: rgba(58, 46, 37, 0.06);
+}
+
 .pos-product-name {
   font-family: 'Cormorant Garamond', serif;
   font-size: 1.35rem;

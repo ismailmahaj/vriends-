@@ -30,7 +30,13 @@ const CATEGORY_EMOJI = {
 };
 
 function productEmoji(product) {
-  return CATEGORY_EMOJI[product.category] || '✨';
+  const cats = Array.isArray(product.categories) && product.categories.length
+    ? product.categories
+    : [product.category];
+  for (const c of cats) {
+    if (CATEGORY_EMOJI[c]) return CATEGORY_EMOJI[c];
+  }
+  return '✨';
 }
 
 function makeIdempotencyKey() {
@@ -95,14 +101,17 @@ function PosShell() {
     const q = state.search.trim().toLowerCase();
     const list = Array.isArray(products) ? products : [];
     return list.filter((p) => {
+      const cats = Array.isArray(p.categories) && p.categories.length
+        ? p.categories
+        : [p.category || 'Autres'];
       if (state.category === 'FAVORITES' && !p.isFavorite) return false;
-      if (state.category !== 'ALL' && state.category !== 'FAVORITES' && p.category !== state.category) {
+      if (state.category !== 'ALL' && state.category !== 'FAVORITES' && !cats.includes(state.category)) {
         return false;
       }
       if (!q) return true;
       return (
         p.name.toLowerCase().includes(q) ||
-        (p.category || '').toLowerCase().includes(q) ||
+        cats.some((c) => String(c).toLowerCase().includes(q)) ||
         (p.sku || '').toLowerCase().includes(q)
       );
     });
@@ -422,9 +431,15 @@ function PosShell() {
                 {product.isFavorite ? '★' : '☆'}
               </button>
               {!product.available && <span className="pos-soldout">{t('posSoldOut')}</span>}
-              <div className="pos-product-emoji">{productEmoji(product)}</div>
+              {product.imageUrl ? (
+                <img src={product.imageUrl} alt="" className="pos-product-img" />
+              ) : (
+                <div className="pos-product-emoji">{productEmoji(product)}</div>
+              )}
               <div className="pos-product-name">{product.name}</div>
-              <div className="pos-product-meta">{product.category}</div>
+              <div className="pos-product-meta">
+                {(product.categories?.length ? product.categories : [product.category]).filter(Boolean).join(' · ')}
+              </div>
               <div className="pos-product-price">{formatCents(product.priceCents)}</div>
             </div>
           ))}

@@ -37,10 +37,12 @@ model Product {
   price         Float
   available     Boolean     @default(true)
   category      String      @default("Autres")
+  categories    Json?
   imageUrl      String?     @map("image_url")
   isFavorite    Boolean     @default(false) @map("is_favorite")
   sku           String?
   optionsSchema String?     @map("options_schema")
+  deletedAt     DateTime?   @map("deleted_at")
   orderItems    OrderItem[]
   posOrderItems PosOrderItem[]
 

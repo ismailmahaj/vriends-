@@ -21,7 +21,7 @@ app.use(cors({
 }));
 
 app.set('trust proxy', 1);
-app.use(express.json({ limit: '10kb' }));
+app.use(express.json({ limit: '2mb' }));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productsRoutes);

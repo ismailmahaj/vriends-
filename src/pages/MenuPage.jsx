@@ -162,13 +162,27 @@ const MenuPage = () => {
                   ...(!product.available && styles.cardUnavailable)
                 }}
               >
-                <div style={styles.emoji}>
-                  {product.name === 'Menu Phare' && '☕'}
-                  {product.name === 'Croissant' && '🥐'}
-                  {product.name === 'Jus Zumex' && '🍊'}
-                  {(product.name === 'Gaufre-Crêpe' || product.name === 'Gaufre') && '🧇'}
-                </div>
+                {product.imageUrl ? (
+                  <img
+                    src={product.imageUrl}
+                    alt=""
+                    style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 4, marginBottom: '1rem' }}
+                  />
+                ) : (
+                  <div style={styles.emoji}>
+                    {product.name === 'Menu Phare' && '☕'}
+                    {product.name === 'Croissant' && '🥐'}
+                    {product.name === 'Jus Zumex' && '🍊'}
+                    {(product.name === 'Gaufre-Crêpe' || product.name === 'Gaufre') && '🧇'}
+                    {!['Menu Phare', 'Croissant', 'Jus Zumex', 'Gaufre-Crêpe', 'Gaufre'].includes(product.name) && '✨'}
+                  </div>
+                )}
                 <div style={styles.name}>{product.name}</div>
+                {(product.categories?.length > 1 || (product.categories?.[0] && product.categories[0] !== 'Autres')) && (
+                  <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.78rem', opacity: 0.6, marginBottom: '0.5rem' }}>
+                    {(product.categories || [product.category]).filter(Boolean).join(' · ')}
+                  </div>
+                )}
                 <div style={styles.price}>
                   {discount && (
                     <span style={styles.priceReduced}>{product.price.toFixed(2)}€</span>

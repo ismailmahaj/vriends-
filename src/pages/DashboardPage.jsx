@@ -10,6 +10,66 @@ import { getPosSettings, updatePosSettings } from '../services/posService';
 import { useLanguage } from '../context/LanguageContext';
 import { Link } from 'react-router-dom';
 
+const emptyProductForm = (defaultCategory = 'Autres') => ({
+  name: '',
+  price: '',
+  categories: defaultCategory ? [defaultCategory] : [],
+  isFavorite: false,
+  available: true,
+  imageUrl: '',
+  options: [],
+});
+
+const fileToCompressedDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    if (!file || !file.type?.startsWith('image/')) {
+      reject(new Error('invalid'));
+      return;
+    }
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      const max = 480;
+      let { width, height } = img;
+      if (width > max || height > max) {
+        const ratio = Math.min(max / width, max / height);
+        width = Math.round(width * ratio);
+        height = Math.round(height * ratio);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, width, height);
+      URL.revokeObjectURL(objectUrl);
+      resolve(canvas.toDataURL('image/jpeg', 0.72));
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error('load'));
+    };
+    img.src = objectUrl;
+  });
+
+const optionsToPayload = (options) =>
+  (options || [])
+    .map((opt) => ({
+      name: String(opt.name || '').trim(),
+      choices: String(opt.choicesText || '')
+        .split(',')
+        .map((c) => c.trim())
+        .filter(Boolean),
+    }))
+    .filter((o) => o.name && o.choices.length);
+
+const optionsFromProduct = (product) =>
+  Array.isArray(product?.optionsSchema)
+    ? product.optionsSchema.map((opt) => ({
+        name: opt.name || '',
+        choicesText: Array.isArray(opt.choices) ? opt.choices.join(', ') : '',
+      }))
+    : [];
+
 const DashboardPage = () => {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('orders');
@@ -29,13 +89,7 @@ const DashboardPage = () => {
   const [posSaving, setPosSaving] = useState(false);
   const [categories, setCategories] = useState([]);
   const [newCategoryName, setNewCategoryName] = useState('');
-  const [productForm, setProductForm] = useState({
-    name: '',
-    price: '',
-    category: 'Autres',
-    isFavorite: false,
-    available: true,
-  });
+  const [productForm, setProductForm] = useState(() => emptyProductForm());
   const [editingProductId, setEditingProductId] = useState(null);
   const [productSaving, setProductSaving] = useState(false);
   const [isMobile, setIsMobile] = useState(() =>
@@ -538,15 +592,6 @@ const DashboardPage = () => {
                       placeholder={t('posPricePlaceholder')}
                       style={{ padding: '0.75rem 1rem', border: '1.5px solid rgba(58,46,37,.2)', background: '#F7F5F2', fontFamily: "'DM Sans', sans-serif" }}
                     />
-                    <select
-                      value={productForm.category}
-                      onChange={(e) => setProductForm((f) => ({ ...f, category: e.target.value }))}
-                      style={{ padding: '0.75rem 1rem', border: '1.5px solid rgba(58,46,37,.2)', background: '#F7F5F2', fontFamily: "'DM Sans', sans-serif" }}
-                    >
-                      {categories.map((c) => (
-                        <option key={c.id} value={c.name}>{c.name}</option>
-                      ))}
-                    </select>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontFamily: "'DM Sans', sans-serif", color: '#3A2E25' }}>
                       <input
                         type="checkbox"
@@ -556,6 +601,212 @@ const DashboardPage = () => {
                       {t('posFavoriteFlag')}
                     </label>
                   </div>
+
+                  <div style={{ marginTop: '1rem' }}>
+                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.85rem', color: '#3A2E25', marginBottom: '0.5rem' }}>
+                      {t('posCategoriesSelect')}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      {categories.map((c) => {
+                        const checked = productForm.categories.includes(c.name);
+                        return (
+                          <label
+                            key={c.id}
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.4rem',
+                              background: checked ? '#3A2E25' : '#F7F5F2',
+                              color: checked ? '#F7F5F2' : '#3A2E25',
+                              border: '1px solid rgba(58,46,37,.2)',
+                              padding: '0.45rem 0.75rem',
+                              borderRadius: '999px',
+                              fontFamily: "'DM Sans', sans-serif",
+                              fontSize: '0.82rem',
+                              cursor: 'pointer',
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => {
+                                setProductForm((f) => {
+                                  const next = checked
+                                    ? f.categories.filter((n) => n !== c.name)
+                                    : [...f.categories, c.name];
+                                  return { ...f, categories: next };
+                                });
+                              }}
+                              style={{ display: 'none' }}
+                            />
+                            {c.name}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: '1.2rem' }}>
+                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.85rem', color: '#3A2E25', marginBottom: '0.5rem' }}>
+                      {t('posImageLabel')}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem', alignItems: 'center' }}>
+                      <input
+                        value={productForm.imageUrl?.startsWith('data:') ? '' : productForm.imageUrl}
+                        onChange={(e) => setProductForm((f) => ({ ...f, imageUrl: e.target.value }))}
+                        placeholder={t('posImageUrl')}
+                        style={{
+                          flex: 1,
+                          minWidth: '220px',
+                          padding: '0.75rem 1rem',
+                          border: '1.5px solid rgba(58,46,37,.2)',
+                          background: '#F7F5F2',
+                          fontFamily: "'DM Sans', sans-serif",
+                        }}
+                      />
+                      <label
+                        style={{
+                          background: '#3A2E25',
+                          color: '#F7F5F2',
+                          padding: '0.75rem 1.1rem',
+                          fontFamily: "'DM Sans', sans-serif",
+                          fontSize: '0.85rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {t('posImageUpload')}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          style={{ display: 'none' }}
+                          onChange={async (e) => {
+                            const file = e.target.files?.[0];
+                            e.target.value = '';
+                            if (!file) return;
+                            try {
+                              const dataUrl = await fileToCompressedDataUrl(file);
+                              setProductForm((f) => ({ ...f, imageUrl: dataUrl }));
+                            } catch {
+                              alert(t('posImageError'));
+                            }
+                          }}
+                        />
+                      </label>
+                      {productForm.imageUrl && (
+                        <button
+                          type="button"
+                          onClick={() => setProductForm((f) => ({ ...f, imageUrl: '' }))}
+                          style={{
+                            background: 'transparent',
+                            border: '1px solid rgba(155,59,46,.35)',
+                            color: '#9b3b2e',
+                            padding: '0.75rem 1rem',
+                            fontFamily: "'DM Sans', sans-serif",
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {t('posImageRemove')}
+                        </button>
+                      )}
+                    </div>
+                    {productForm.imageUrl && (
+                      <img
+                        src={productForm.imageUrl}
+                        alt=""
+                        style={{ marginTop: '0.75rem', width: 96, height: 96, objectFit: 'cover', borderRadius: 8 }}
+                      />
+                    )}
+                  </div>
+
+                  <div style={{ marginTop: '1.2rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.85rem', color: '#3A2E25' }}>
+                        {t('posOptionsTitle')}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setProductForm((f) => ({
+                            ...f,
+                            options: [...f.options, { name: '', choicesText: '' }],
+                          }))
+                        }
+                        style={{
+                          background: 'transparent',
+                          border: '1px solid rgba(58,46,37,.3)',
+                          color: '#3A2E25',
+                          padding: '0.45rem 0.9rem',
+                          fontFamily: "'DM Sans', sans-serif",
+                          fontSize: '0.8rem',
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {t('posAddOption')}
+                      </button>
+                    </div>
+                    <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.78rem', color: '#1C1C1C', opacity: 0.65, marginBottom: '0.75rem' }}>
+                      {t('posOptionsHint')}
+                    </p>
+                    {productForm.options.map((opt, idx) => (
+                      <div
+                        key={idx}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: isMobile ? '1fr' : '1fr 1.4fr auto',
+                          gap: '0.55rem',
+                          marginBottom: '0.55rem',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <input
+                          value={opt.name}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setProductForm((f) => {
+                              const options = [...f.options];
+                              options[idx] = { ...options[idx], name: value };
+                              return { ...f, options };
+                            });
+                          }}
+                          placeholder={t('posOptionName')}
+                          style={{ padding: '0.65rem 0.85rem', border: '1.5px solid rgba(58,46,37,.2)', background: '#F7F5F2', fontFamily: "'DM Sans', sans-serif" }}
+                        />
+                        <input
+                          value={opt.choicesText}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setProductForm((f) => {
+                              const options = [...f.options];
+                              options[idx] = { ...options[idx], choicesText: value };
+                              return { ...f, options };
+                            });
+                          }}
+                          placeholder={t('posOptionChoices')}
+                          style={{ padding: '0.65rem 0.85rem', border: '1.5px solid rgba(58,46,37,.2)', background: '#F7F5F2', fontFamily: "'DM Sans', sans-serif" }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setProductForm((f) => ({
+                              ...f,
+                              options: f.options.filter((_, i) => i !== idx),
+                            }))
+                          }
+                          style={{
+                            background: 'transparent',
+                            border: '1px solid rgba(155,59,46,.35)',
+                            color: '#9b3b2e',
+                            padding: '0.65rem 0.9rem',
+                            fontFamily: "'DM Sans', sans-serif",
+                            cursor: 'pointer',
+                          }}
+                        >
+                          {t('posRemoveOption')}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
                   <div style={{ display: 'flex', gap: '0.6rem', marginTop: '1rem', flexWrap: 'wrap' }}>
                     <button
                       type="button"
@@ -565,27 +816,28 @@ const DashboardPage = () => {
                           alert(t('posNamePriceRequired'));
                           return;
                         }
+                        if (!productForm.categories.length) {
+                          alert(t('posCategoriesRequired'));
+                          return;
+                        }
                         setProductSaving(true);
                         try {
                           const payload = {
                             name: productForm.name.trim(),
                             price: Number(productForm.price),
-                            category: productForm.category,
+                            categories: productForm.categories,
+                            category: productForm.categories[0],
                             isFavorite: productForm.isFavorite,
                             available: productForm.available,
+                            imageUrl: productForm.imageUrl || null,
+                            optionsSchema: optionsToPayload(productForm.options),
                           };
                           if (editingProductId) {
                             await updateProduct(editingProductId, payload);
                           } else {
                             await createProduct(payload);
                           }
-                          setProductForm({
-                            name: '',
-                            price: '',
-                            category: categories[0]?.name || 'Autres',
-                            isFavorite: false,
-                            available: true,
-                          });
+                          setProductForm(emptyProductForm(categories[0]?.name || 'Autres'));
                           setEditingProductId(null);
                           loadData();
                         } catch (err) {
@@ -610,13 +862,7 @@ const DashboardPage = () => {
                         type="button"
                         onClick={() => {
                           setEditingProductId(null);
-                          setProductForm({
-                            name: '',
-                            price: '',
-                            category: categories[0]?.name || 'Autres',
-                            isFavorite: false,
-                            available: true,
-                          });
+                          setProductForm(emptyProductForm(categories[0]?.name || 'Autres'));
                         }}
                         style={{
                           background: 'transparent',
@@ -639,12 +885,22 @@ const DashboardPage = () => {
                 </h3>
                 {products.map((product) => (
                   <div key={product.id} style={styles.productCard}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.3rem', color: '#3A2E25' }}>
-                        {product.name} {product.isFavorite ? '★' : ''}
-                      </div>
-                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.9rem', color: '#1C1C1C', opacity: 0.7 }}>
-                        {Number(product.price).toFixed(2)}€ · {product.category || 'Autres'}
+                    <div style={{ display: 'flex', gap: '0.9rem', flex: 1, alignItems: 'center' }}>
+                      {product.imageUrl ? (
+                        <img
+                          src={product.imageUrl}
+                          alt=""
+                          style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }}
+                        />
+                      ) : null}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.3rem', color: '#3A2E25' }}>
+                          {product.name} {product.isFavorite ? '★' : ''}
+                          {Array.isArray(product.optionsSchema) && product.optionsSchema.length > 0 ? ' · ⚙' : ''}
+                        </div>
+                        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.9rem', color: '#1C1C1C', opacity: 0.7 }}>
+                          {Number(product.price).toFixed(2)}€ · {(product.categories?.length ? product.categories : [product.category || 'Autres']).join(' · ')}
+                        </div>
                       </div>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
@@ -655,9 +911,13 @@ const DashboardPage = () => {
                           setProductForm({
                             name: product.name,
                             price: String(product.price),
-                            category: product.category || 'Autres',
+                            categories: product.categories?.length
+                              ? product.categories
+                              : [product.category || categories[0]?.name || 'Autres'],
                             isFavorite: !!product.isFavorite,
                             available: !!product.available,
+                            imageUrl: product.imageUrl || '',
+                            options: optionsFromProduct(product),
                           });
                           window.scrollTo({ top: 0, behavior: 'smooth' });
                         }}
@@ -679,7 +939,7 @@ const DashboardPage = () => {
                           if (!confirm(t('posDeleteProductConfirm', { name: product.name }))) return;
                           try {
                             const res = await deleteProduct(product.id);
-                            if (res.softDeleted) alert(res.message);
+                            if (res.softDeleted) alert(t('posProductArchived'));
                             loadData();
                           } catch (err) {
                             alert(err.response?.data?.error || t('error'));

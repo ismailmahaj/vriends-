@@ -1,4 +1,9 @@
 const prisma = require('../db/prisma');
+const {
+  parseCategories,
+  productUsesCategory,
+  renameCategoryInList,
+} = require('../lib/productHelpers');
 
 const mapCategory = (c, productCount = 0) => ({
   id: c.id,
@@ -8,18 +13,26 @@ const mapCategory = (c, productCount = 0) => ({
   productCount,
 });
 
+const countProductsByCategory = async () => {
+  const products = await prisma.product.findMany({
+    where: { deletedAt: null },
+    select: { category: true, categories: true },
+  });
+  const countMap = {};
+  for (const p of products) {
+    for (const name of parseCategories(p)) {
+      countMap[name] = (countMap[name] || 0) + 1;
+    }
+  }
+  return countMap;
+};
+
 const getCategories = async (req, res) => {
   try {
     const rows = await prisma.category.findMany({
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
-
-    const counts = await prisma.product.groupBy({
-      by: ['category'],
-      _count: { _all: true },
-    });
-    const countMap = Object.fromEntries(counts.map((c) => [c.category, c._count._all]));
-
+    const countMap = await countProductsByCategory();
     res.json(rows.map((c) => mapCategory(c, countMap[c.name] || 0)));
   } catch (error) {
     console.error(error);
@@ -70,17 +83,27 @@ const updateCategory = async (req, res) => {
         where: { id: category.id },
         data: { name, sortOrder },
       });
+
       if (name !== category.name) {
-        await tx.product.updateMany({
-          where: { category: category.name },
-          data: { category: name },
+        const products = await tx.product.findMany({
+          where: { deletedAt: null },
+          select: { id: true, category: true, categories: true },
         });
+        for (const p of products) {
+          const cats = parseCategories(p);
+          if (!productUsesCategory(p, category.name)) continue;
+          const next = renameCategoryInList(cats, category.name, name);
+          await tx.product.update({
+            where: { id: p.id },
+            data: { category: next[0], categories: next },
+          });
+        }
       }
       return cat;
     });
 
-    const productCount = await prisma.product.count({ where: { category: updated.name } });
-    res.json(mapCategory(updated, productCount));
+    const countMap = await countProductsByCategory();
+    res.json(mapCategory(updated, countMap[updated.name] || 0));
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erreur serveur' });
@@ -92,7 +115,11 @@ const deleteCategory = async (req, res) => {
     const category = await prisma.category.findUnique({ where: { id: Number(req.params.id) } });
     if (!category) return res.status(404).json({ error: 'Catégorie non trouvée' });
 
-    const count = await prisma.product.count({ where: { category: category.name } });
+    const products = await prisma.product.findMany({
+      where: { deletedAt: null },
+      select: { category: true, categories: true },
+    });
+    const count = products.filter((p) => productUsesCategory(p, category.name)).length;
     if (count > 0) {
       return res.status(400).json({
         error: `Impossible de supprimer : ${count} produit(s) utilisent cette catégorie`,

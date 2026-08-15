@@ -6,6 +6,7 @@ const {
   CUSTOMER_TYPES,
 } = require('../lib/pricingEngine.cjs');
 const { processPayment } = require('../services/paymentProvider');
+const { parseCategories, parseOptionsSchema } = require('../lib/productHelpers');
 
 const VALID_CUSTOMER = new Set(Object.values(CUSTOMER_TYPES));
 const VALID_ORDER_TYPE = new Set(['DINE_IN', 'TAKEAWAY', 'DELIVERY']);
@@ -40,25 +41,19 @@ async function getPosSettingsFromDb() {
 }
 
 function mapProduct(p) {
-  let optionsSchema = null;
-  if (p.optionsSchema) {
-    try {
-      optionsSchema = JSON.parse(p.optionsSchema);
-    } catch {
-      optionsSchema = null;
-    }
-  }
+  const categories = parseCategories(p);
   return {
     id: p.id,
     name: p.name,
     price: p.price,
     priceCents: eurosToCents(p.price),
     available: p.available,
-    category: p.category || 'Autres',
+    category: categories[0] || 'Autres',
+    categories,
     imageUrl: p.imageUrl || null,
     isFavorite: p.isFavorite,
     sku: p.sku || null,
-    optionsSchema,
+    optionsSchema: parseOptionsSchema(p.optionsSchema),
   };
 }
 
@@ -149,7 +144,9 @@ async function resolveLineItems(rawItems) {
       return { error: 'Article invalide' };
     }
 
-    const product = await prisma.product.findUnique({ where: { id: Number(productId) } });
+    const product = await prisma.product.findFirst({
+      where: { id: Number(productId), deletedAt: null },
+    });
     if (!product) {
       return { error: `Produit ${productId} introuvable` };
     }
@@ -175,6 +172,7 @@ async function resolveLineItems(rawItems) {
 const getProducts = async (req, res) => {
   try {
     const products = await prisma.product.findMany({
+      where: { deletedAt: null },
       orderBy: [{ isFavorite: 'desc' }, { name: 'asc' }],
     });
     res.json(products.map(mapProduct));
@@ -189,22 +187,28 @@ const getCategories = async (req, res) => {
     const catalog = await prisma.category.findMany({
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
-    const counts = await prisma.product.groupBy({
-      by: ['category'],
-      _count: { _all: true },
+    const products = await prisma.product.findMany({
+      where: { deletedAt: null },
+      select: { category: true, categories: true, isFavorite: true },
     });
-    const countMap = Object.fromEntries(counts.map((c) => [c.category, c._count._all]));
-    const known = new Set(catalog.map((c) => c.name));
-    const orphan = counts
-      .filter((c) => c.category && !known.has(c.category))
-      .map((c) => ({ name: c.category, count: c._count._all }));
 
-    const total = await prisma.product.count();
-    const favorites = await prisma.product.count({ where: { isFavorite: true } });
+    const countMap = {};
+    let favorites = 0;
+    for (const p of products) {
+      if (p.isFavorite) favorites += 1;
+      for (const name of parseCategories(p)) {
+        countMap[name] = (countMap[name] || 0) + 1;
+      }
+    }
+
+    const known = new Set(catalog.map((c) => c.name));
+    const orphan = Object.keys(countMap)
+      .filter((name) => !known.has(name))
+      .map((name) => ({ name, count: countMap[name] }));
 
     res.json({
       categories: [
-        { key: 'ALL', label: 'Tous', count: total },
+        { key: 'ALL', label: 'Tous', count: products.length },
         { key: 'FAVORITES', label: 'Favoris', count: favorites },
         ...catalog.map((r) => ({ key: r.name, label: r.name, count: countMap[r.name] || 0 })),
         ...orphan.map((r) => ({ key: r.name, label: r.name, count: r.count })),
@@ -260,7 +264,9 @@ const updateSettings = async (req, res) => {
 
 const toggleFavorite = async (req, res) => {
   try {
-    const product = await prisma.product.findUnique({ where: { id: Number(req.params.id) } });
+    const product = await prisma.product.findFirst({
+      where: { id: Number(req.params.id), deletedAt: null },
+    });
     if (!product) return res.status(404).json({ error: 'Produit non trouvé' });
     const updated = await prisma.product.update({
       where: { id: product.id },
