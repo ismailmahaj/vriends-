@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { getAllOrders, updateStatus } from '../services/ordersService';
 import { getProducts, toggleProduct, createProduct, updateProduct, deleteProduct } from '../services/productsService';
-import { getCategories, createCategory, deleteCategory } from '../services/categoriesService';
+import { getCategories, createCategory, deleteCategory, updateCategory } from '../services/categoriesService';
 import { getContacts, markTreated, deleteContact, exportCSV } from '../services/contactsService';
 import { getUsers, exportUsersCSV } from '../services/authService';
 import { getQRStats } from '../services/qrService';
@@ -9,6 +9,7 @@ import { getSetting, updateSetting } from '../services/settingsService';
 import { getPosSettings, updatePosSettings } from '../services/posService';
 import { useLanguage } from '../context/LanguageContext';
 import { Link } from 'react-router-dom';
+import { editorRowsToSchema, schemaToEditorRows } from '../lib/optionsEngine';
 
 const emptyProductForm = (defaultCategory = 'Autres') => ({
   name: '',
@@ -51,24 +52,9 @@ const fileToCompressedDataUrl = (file) =>
     img.src = objectUrl;
   });
 
-const optionsToPayload = (options) =>
-  (options || [])
-    .map((opt) => ({
-      name: String(opt.name || '').trim(),
-      choices: String(opt.choicesText || '')
-        .split(',')
-        .map((c) => c.trim())
-        .filter(Boolean),
-    }))
-    .filter((o) => o.name && o.choices.length);
+const optionsToPayload = (options) => editorRowsToSchema(options) || [];
 
-const optionsFromProduct = (product) =>
-  Array.isArray(product?.optionsSchema)
-    ? product.optionsSchema.map((opt) => ({
-        name: opt.name || '',
-        choicesText: Array.isArray(opt.choices) ? opt.choices.join(', ') : '',
-      }))
-    : [];
+const optionsFromProduct = (product) => schemaToEditorRows(product?.optionsSchema);
 
 const DashboardPage = () => {
   const { t } = useLanguage();
@@ -139,12 +125,12 @@ const DashboardPage = () => {
         const data = await getAllOrders();
         setOrders(data);
       } else if (activeTab === 'products') {
-        const [prods, cats] = await Promise.all([getProducts(), getCategories()]);
+        const [prods, cats] = await Promise.all([
+          getProducts(),
+          getCategories({ includeInactive: '1' }),
+        ]);
         setProducts(prods);
         setCategories(cats);
-        if (cats.length && !productForm.category) {
-          setProductForm((f) => ({ ...f, category: cats[0].name }));
-        }
       } else if (activeTab === 'contacts') {
         const data = await getContacts();
         setContacts(data);
@@ -453,6 +439,11 @@ const DashboardPage = () => {
                                 <strong>{t('posOrderHash')} #{order.id}</strong> - {order.user?.name || 'N/A'} ({order.user?.email || 'N/A'})
                               </div>
                               <div style={styles.orderInfo}>{t('orderTotal')} : {order.total_price.toFixed(2)}€</div>
+                              {order.notes && (
+                                <div style={{ ...styles.orderInfo, fontStyle: 'italic' }}>
+                                  {t('orderNotesLabel')} : {order.notes}
+                                </div>
+                              )}
                             </div>
                             <select
                               value={order.status}
@@ -460,7 +451,11 @@ const DashboardPage = () => {
                               style={styles.select}
                             >
                               <option value="pending">{t('pending')}</option>
+                              <option value="confirmed">{t('confirmed')}</option>
+                              <option value="preparing">{t('preparing')}</option>
                               <option value="ready">{t('ready')}</option>
+                              <option value="delivering">{t('delivering')}</option>
+                              <option value="delivered">{t('delivered')}</option>
                               <option value="completed">{t('completed')}</option>
                               <option value="cancelled">{t('cancelled')}</option>
                             </select>
@@ -496,7 +491,7 @@ const DashboardPage = () => {
                           display: 'inline-flex',
                           alignItems: 'center',
                           gap: '0.5rem',
-                          background: '#E6DCCB',
+                          background: cat.isActive === false ? 'rgba(155,59,46,.12)' : '#E6DCCB',
                           padding: '0.55rem 0.9rem',
                           borderRadius: '999px',
                           fontFamily: "'DM Sans', sans-serif",
@@ -504,7 +499,57 @@ const DashboardPage = () => {
                           color: '#3A2E25',
                         }}
                       >
-                        <span>{cat.name} ({cat.productCount})</span>
+                        <button
+                          type="button"
+                          title="↑"
+                          onClick={async () => {
+                            try {
+                              await updateCategory(cat.id, { sortOrder: Math.max(0, (cat.sortOrder || 0) - 1) });
+                              loadData();
+                            } catch (err) {
+                              alert(err.response?.data?.error || t('error'));
+                            }
+                          }}
+                          style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          title="↓"
+                          onClick={async () => {
+                            try {
+                              await updateCategory(cat.id, { sortOrder: (cat.sortOrder || 0) + 1 });
+                              loadData();
+                            } catch (err) {
+                              alert(err.response?.data?.error || t('error'));
+                            }
+                          }}
+                          style={{ border: 'none', background: 'transparent', cursor: 'pointer' }}
+                        >
+                          ↓
+                        </button>
+                        <span>
+                          {cat.icon ? `${cat.icon} ` : ''}
+                          {cat.name} ({cat.productCount})
+                          {cat.isActive === false ? ' · off' : ''}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const name = window.prompt(t('posNewCategory'), cat.name);
+                            if (!name?.trim()) return;
+                            try {
+                              await updateCategory(cat.id, { name: name.trim() });
+                              loadData();
+                            } catch (err) {
+                              alert(err.response?.data?.error || t('error'));
+                            }
+                          }}
+                          style={{ border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '0.75rem' }}
+                        >
+                          ✎
+                        </button>
                         <button
                           type="button"
                           onClick={async () => {
@@ -531,7 +576,7 @@ const DashboardPage = () => {
                       </div>
                     ))}
                   </div>
-                  <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', maxWidth: '520px' }}>
+                  <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap', maxWidth: '720px' }}>
                     <input
                       value={newCategoryName}
                       onChange={(e) => setNewCategoryName(e.target.value)}
@@ -550,7 +595,10 @@ const DashboardPage = () => {
                       onClick={async () => {
                         if (!newCategoryName.trim()) return;
                         try {
-                          await createCategory({ name: newCategoryName.trim() });
+                          const sortOrder = categories.length
+                            ? Math.max(...categories.map((c) => c.sortOrder || 0)) + 1
+                            : 0;
+                          await createCategory({ name: newCategoryName.trim(), sortOrder });
                           setNewCategoryName('');
                           loadData();
                         } catch (err) {
@@ -569,6 +617,9 @@ const DashboardPage = () => {
                       {t('posAddCategory')}
                     </button>
                   </div>
+                  <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.78rem', opacity: 0.65, marginTop: '0.75rem' }}>
+                    {t('posCategoryOrderHint')}
+                  </p>
                 </div>
 
                 {/* Formulaire produit */}
@@ -728,7 +779,7 @@ const DashboardPage = () => {
                         onClick={() =>
                           setProductForm((f) => ({
                             ...f,
-                            options: [...f.options, { name: '', choicesText: '' }],
+                            options: [...f.options, { name: '', choicesText: '', selection: 'single', required: true, min: 1, max: 1 }],
                           }))
                         }
                         style={{
@@ -752,7 +803,7 @@ const DashboardPage = () => {
                         key={idx}
                         style={{
                           display: 'grid',
-                          gridTemplateColumns: isMobile ? '1fr' : '1fr 1.4fr auto',
+                          gridTemplateColumns: isMobile ? '1fr' : '1fr 1.2fr auto auto auto',
                           gap: '0.55rem',
                           marginBottom: '0.55rem',
                           alignItems: 'center',
@@ -784,6 +835,40 @@ const DashboardPage = () => {
                           placeholder={t('posOptionChoices')}
                           style={{ padding: '0.65rem 0.85rem', border: '1.5px solid rgba(58,46,37,.2)', background: '#F7F5F2', fontFamily: "'DM Sans', sans-serif" }}
                         />
+                        <select
+                          value={opt.selection || 'single'}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setProductForm((f) => {
+                              const options = [...f.options];
+                              options[idx] = {
+                                ...options[idx],
+                                selection: value,
+                                max: value === 'single' ? 1 : Math.max(options[idx].max || 2, 2),
+                              };
+                              return { ...f, options };
+                            });
+                          }}
+                          style={{ padding: '0.65rem', border: '1.5px solid rgba(58,46,37,.2)', background: '#F7F5F2', fontFamily: "'DM Sans', sans-serif" }}
+                        >
+                          <option value="single">{t('posOptionsSingle')}</option>
+                          <option value="multiple">{t('posOptionsMulti')}</option>
+                        </select>
+                        <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.78rem', display: 'flex', gap: 4, alignItems: 'center' }}>
+                          <input
+                            type="checkbox"
+                            checked={!!opt.required}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setProductForm((f) => {
+                                const options = [...f.options];
+                                options[idx] = { ...options[idx], required: checked, min: checked ? 1 : 0 };
+                                return { ...f, options };
+                              });
+                            }}
+                          />
+                          {t('posOptionRequired')}
+                        </label>
                         <button
                           type="button"
                           onClick={() =>

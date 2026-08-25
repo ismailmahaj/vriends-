@@ -7,6 +7,12 @@ const {
 } = require('../lib/pricingEngine.cjs');
 const { processPayment } = require('../services/paymentProvider');
 const { parseCategories, parseOptionsSchema } = require('../lib/productHelpers');
+const {
+  normalizeOptionsSchema,
+  validateSelection,
+  computeUnitPriceEuros,
+  buildOptionsSnapshot,
+} = require('../lib/optionsEngine.cjs');
 
 const VALID_CUSTOMER = new Set(Object.values(CUSTOMER_TYPES));
 const VALID_ORDER_TYPE = new Set(['DINE_IN', 'TAKEAWAY', 'DELIVERY']);
@@ -86,6 +92,17 @@ function serializeOrder(order) {
     orderNumber: order.orderNumber,
     cashierId: order.cashierId,
     cashierName: order.cashier?.name || null,
+    customerId: order.customerId || null,
+    customer: order.customer
+      ? {
+          id: order.customer.id,
+          name: order.customer.name,
+          email: order.customer.email,
+          phone: order.customer.phone || null,
+          local_status: order.customer.localStatus,
+          discount_percent: order.customer.discountPercent,
+        }
+      : null,
     customerType: order.customerType,
     orderType: order.orderType,
     status: order.status,
@@ -124,6 +141,7 @@ async function loadOrder(id) {
     where: { id: Number(id) },
     include: {
       cashier: true,
+      customer: true,
       items: { orderBy: { id: 'asc' } },
     },
   });
@@ -154,14 +172,25 @@ async function resolveLineItems(rawItems) {
       return { error: `Produit « ${product.name} » épuisé` };
     }
 
-    const unitPriceCents = eurosToCents(product.price);
-    const options = item.options || null;
+    const schema = normalizeOptionsSchema(product.optionsSchema);
+    const selection = item.options || item.selection || null;
+    if (schema?.length) {
+      const check = validateSelection(schema, selection || {});
+      if (!check.ok) {
+        return { error: check.errors[0]?.message || 'Options invalides' };
+      }
+    }
+
+    const unitPriceEuros = computeUnitPriceEuros(product.price, schema, selection || {});
+    const unitPriceCents = eurosToCents(unitPriceEuros);
+    const snapshot = schema?.length ? buildOptionsSnapshot(schema, selection || {}) : null;
+
     lines.push({
       productId: product.id,
       productNameSnapshot: product.name,
       unitPriceCents,
       quantity,
-      options,
+      options: snapshot || selection || null,
       subtotalCents: unitPriceCents * quantity,
     });
   }
@@ -290,7 +319,22 @@ const createOrder = async (req, res) => {
       cashReceivedCents,
       idempotencyKey,
       notes,
+      customerId = null,
     } = req.body || {};
+
+    const notesClean = notes != null ? String(notes).trim() : '';
+    if (notesClean.length > 500) {
+      return res.status(400).json({ error: 'Commentaire trop long (max 500 caractères)' });
+    }
+
+    let resolvedCustomerId = null;
+    if (customerId != null && customerId !== '') {
+      const customer = await prisma.user.findFirst({
+        where: { id: Number(customerId), role: 'client' },
+      });
+      if (!customer) return res.status(400).json({ error: 'Client introuvable' });
+      resolvedCustomerId = customer.id;
+    }
 
     if (idempotencyKey) {
       const existing = await prisma.posOrder.findUnique({ where: { idempotencyKey } });
@@ -355,6 +399,7 @@ const createOrder = async (req, res) => {
         data: {
           orderNumber,
           cashierId: req.user.id,
+          customerId: resolvedCustomerId,
           customerType,
           orderType,
           status,
@@ -371,7 +416,7 @@ const createOrder = async (req, res) => {
           cashChangeCents: cashChange,
           appliedRules: pricing.appliedRules,
           idempotencyKey: idempotencyKey || null,
-          notes: notes || null,
+          notes: notesClean || null,
           heldAt: hold ? new Date() : null,
           paidAt,
           items: {
@@ -418,6 +463,7 @@ const getOrders = async (req, res) => {
       where: status ? { status } : undefined,
       include: {
         cashier: true,
+        customer: true,
         items: true,
       },
       orderBy: { createdAt: 'desc' },

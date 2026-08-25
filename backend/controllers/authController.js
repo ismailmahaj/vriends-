@@ -3,7 +3,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
 const register = async (req, res) => {
-  const { name, email, password, localStatus } = req.body;
+  const { name, email, password, localStatus, phone } = req.body;
 
   if (!name || !email || !password) {
     return res.status(400).json({ error: 'Tous les champs sont requis' });
@@ -22,23 +22,17 @@ const register = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const local_status = !!localStatus;
     const discount_percent = localStatus ? 10 : 0;
+    const phoneClean = phone != null ? String(phone).trim() || null : null;
 
     const newUser = await prisma.user.create({
       data: {
         name,
         email,
         password: hashedPassword,
+        phone: phoneClean,
         localStatus: local_status,
         discountPercent: discount_percent,
       },
-    });
-
-    console.log('✅ Utilisateur créé:', {
-      id: newUser.id,
-      email,
-      name,
-      local_status: local_status ? 'Oui' : 'Non',
-      discount_percent: `${discount_percent}%`,
     });
 
     res.status(201).json({
@@ -48,6 +42,7 @@ const register = async (req, res) => {
         id: newUser.id,
         name: newUser.name,
         email: newUser.email,
+        phone: newUser.phone,
         role: newUser.role,
         local_status: newUser.localStatus,
         discount_percent: newUser.discountPercent,
@@ -97,6 +92,7 @@ const login = async (req, res) => {
         id: user.id,
         name: user.name,
         email: user.email,
+        phone: user.phone || null,
         role: user.role,
         local_status: user.localStatus,
         discount_percent: user.discountPercent,
@@ -108,6 +104,17 @@ const login = async (req, res) => {
   }
 };
 
+const mapPublicUser = (user) => ({
+  id: user.id,
+  name: user.name,
+  email: user.email,
+  phone: user.phone || null,
+  role: user.role,
+  local_status: user.localStatus,
+  discount_percent: user.discountPercent,
+  created_at: user.createdAt,
+});
+
 const getUsers = async (req, res) => {
   try {
     const users = await prisma.user.findMany({
@@ -115,6 +122,7 @@ const getUsers = async (req, res) => {
         id: true,
         name: true,
         email: true,
+        phone: true,
         role: true,
         localStatus: true,
         discountPercent: true,
@@ -123,20 +131,89 @@ const getUsers = async (req, res) => {
       orderBy: { createdAt: 'desc' },
     });
 
-    res.json(
-      users.map((user) => ({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        local_status: user.localStatus,
-        discount_percent: user.discountPercent,
-        created_at: user.createdAt,
-      }))
-    );
+    res.json(users.map(mapPublicUser));
   } catch (error) {
     console.error('❌ Erreur récupération utilisateurs:', error);
     res.status(500).json({ error: 'Erreur serveur', details: error.message });
+  }
+};
+
+const searchCustomers = async (req, res) => {
+  try {
+    const q = String(req.query.q || '').trim();
+    if (q.length < 2) {
+      return res.json([]);
+    }
+
+    const users = await prisma.user.findMany({
+      where: {
+        role: 'client',
+        OR: [
+          { name: { contains: q, mode: 'insensitive' } },
+          { email: { contains: q, mode: 'insensitive' } },
+          { phone: { contains: q, mode: 'insensitive' } },
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        role: true,
+        localStatus: true,
+        discountPercent: true,
+        createdAt: true,
+      },
+      take: 20,
+      orderBy: { name: 'asc' },
+    });
+
+    res.json(users.map(mapPublicUser));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+};
+
+const createCustomer = async (req, res) => {
+  try {
+    const name = String(req.body?.name || '').trim();
+    const emailRaw = String(req.body?.email || '').trim().toLowerCase();
+    const phone = req.body?.phone != null ? String(req.body.phone).trim() || null : null;
+    const localStatus = !!req.body?.localStatus;
+
+    if (!name) return res.status(400).json({ error: 'Nom requis' });
+
+    let email = emailRaw;
+    if (!email) {
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '.').replace(/^\.|\.$/g, '') || 'client';
+      email = `${slug}.${Date.now()}@pos.vriends.local`;
+    }
+
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      return res.status(400).json({ error: 'Email déjà utilisé' });
+    }
+
+    const tempPassword = `Pos${Math.random().toString(36).slice(2)}${Date.now()}!`;
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+    const user = await prisma.user.create({
+      data: {
+        name,
+        email,
+        phone,
+        password: hashedPassword,
+        role: 'client',
+        localStatus,
+        discountPercent: localStatus ? 10 : 0,
+      },
+    });
+
+    res.status(201).json(mapPublicUser(user));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erreur serveur' });
   }
 };
 
@@ -185,4 +262,11 @@ const exportUsersCSV = async (req, res) => {
   }
 };
 
-module.exports = { register, login, getUsers, exportUsersCSV };
+module.exports = {
+  register,
+  login,
+  getUsers,
+  exportUsersCSV,
+  searchCustomers,
+  createCustomer,
+};

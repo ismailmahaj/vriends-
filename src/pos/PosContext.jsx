@@ -18,6 +18,8 @@ const initialState = {
   search: '',
   settings: null,
   clock: new Date(),
+  customerUser: null,
+  notes: '',
 };
 
 function loadDraft() {
@@ -64,7 +66,10 @@ function reducer(state, action) {
             key,
             productId: product.id,
             name: product.name,
-            unitPriceCents: product.priceCents,
+            unitPriceCents:
+              action.payload.unitPriceCents != null
+                ? action.payload.unitPriceCents
+                : product.priceCents,
             quantity: 1,
             options: options || null,
             available: product.available,
@@ -93,6 +98,10 @@ function reducer(state, action) {
         items: state.items.filter((i) => i.key !== action.payload),
         selectedLineKey: state.selectedLineKey === action.payload ? null : state.selectedLineKey,
       };
+    case 'SET_CUSTOMER_USER':
+      return { ...state, customerUser: action.payload };
+    case 'SET_NOTES':
+      return { ...state, notes: action.payload };
     case 'CLEAR':
       return {
         ...state,
@@ -100,6 +109,8 @@ function reducer(state, action) {
         selectedLineKey: null,
         customerType: CUSTOMER_TYPES.STANDARD,
         orderType: 'DINE_IN',
+        customerUser: null,
+        notes: '',
       };
     case 'LOAD_HELD':
       return {

@@ -1,4 +1,7 @@
 /** Helpers partagés pour le catalogue produits */
+const {
+  normalizeOptionsSchema,
+} = require('./optionsEngine.cjs');
 
 function parseCategories(productOrRaw) {
   if (Array.isArray(productOrRaw)) {
@@ -40,28 +43,6 @@ function categoriesFromBody(body, fallbackProduct) {
   }
   if (fallbackProduct) return parseCategories(fallbackProduct);
   return ['Autres'];
-}
-
-function normalizeOptionsSchema(raw) {
-  if (raw == null || raw === '') return null;
-  let value = raw;
-  if (typeof value === 'string') {
-    try {
-      value = JSON.parse(value);
-    } catch {
-      return null;
-    }
-  }
-  if (!Array.isArray(value)) return null;
-  const opts = value
-    .map((opt) => ({
-      name: String(opt?.name || '').trim(),
-      choices: Array.isArray(opt?.choices)
-        ? [...new Set(opt.choices.map((c) => String(c || '').trim()).filter(Boolean))]
-        : [],
-    }))
-    .filter((o) => o.name && o.choices.length);
-  return opts.length ? opts : null;
 }
 
 function parseOptionsSchema(raw) {

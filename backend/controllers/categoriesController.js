@@ -9,6 +9,9 @@ const mapCategory = (c, productCount = 0) => ({
   id: c.id,
   name: c.name,
   sortOrder: c.sortOrder,
+  imageUrl: c.imageUrl || null,
+  icon: c.icon || null,
+  isActive: c.isActive !== false,
   createdAt: c.createdAt,
   productCount,
 });
@@ -29,7 +32,9 @@ const countProductsByCategory = async () => {
 
 const getCategories = async (req, res) => {
   try {
+    const includeInactive = req.query.includeInactive === '1' || req.query.includeInactive === 'true';
     const rows = await prisma.category.findMany({
+      where: includeInactive ? undefined : { isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
     const countMap = await countProductsByCategory();
@@ -44,6 +49,9 @@ const createCategory = async (req, res) => {
   try {
     const name = String(req.body?.name || '').trim();
     const sortOrder = Number(req.body?.sortOrder ?? 0) || 0;
+    const icon = req.body?.icon != null ? String(req.body.icon).trim() || null : null;
+    const imageUrl = req.body?.imageUrl != null ? String(req.body.imageUrl).trim() || null : null;
+    const isActive = req.body?.isActive != null ? !!req.body.isActive : true;
     if (!name) return res.status(400).json({ error: 'Nom de catégorie requis' });
 
     const exists = await prisma.category.findFirst({
@@ -52,7 +60,7 @@ const createCategory = async (req, res) => {
     if (exists) return res.status(400).json({ error: 'Cette catégorie existe déjà' });
 
     const created = await prisma.category.create({
-      data: { name, sortOrder },
+      data: { name, sortOrder, icon, imageUrl, isActive },
     });
     res.status(201).json(mapCategory(created, 0));
   } catch (error) {
@@ -68,6 +76,13 @@ const updateCategory = async (req, res) => {
 
     const name = req.body?.name != null ? String(req.body.name).trim() : category.name;
     const sortOrder = req.body?.sortOrder != null ? Number(req.body.sortOrder) || 0 : category.sortOrder;
+    const icon = req.body?.icon !== undefined
+      ? (req.body.icon ? String(req.body.icon).trim() : null)
+      : category.icon;
+    const imageUrl = req.body?.imageUrl !== undefined
+      ? (req.body.imageUrl ? String(req.body.imageUrl).trim() : null)
+      : category.imageUrl;
+    const isActive = req.body?.isActive != null ? !!req.body.isActive : category.isActive;
     if (!name) return res.status(400).json({ error: 'Nom de catégorie requis' });
 
     const clash = await prisma.category.findFirst({
@@ -81,7 +96,7 @@ const updateCategory = async (req, res) => {
     const updated = await prisma.$transaction(async (tx) => {
       const cat = await tx.category.update({
         where: { id: category.id },
-        data: { name, sortOrder },
+        data: { name, sortOrder, icon, imageUrl, isActive },
       });
 
       if (name !== category.name) {
@@ -121,13 +136,21 @@ const deleteCategory = async (req, res) => {
     });
     const count = products.filter((p) => productUsesCategory(p, category.name)).length;
     if (count > 0) {
-      return res.status(400).json({
-        error: `Impossible de supprimer : ${count} produit(s) utilisent cette catégorie`,
+      // Soft-disable instead of hard delete when products still use it
+      const updated = await prisma.category.update({
+        where: { id: category.id },
+        data: { isActive: false },
+      });
+      return res.json({
+        success: true,
+        softDeleted: true,
+        message: `Catégorie désactivée (${count} produit(s) liés)`,
+        category: mapCategory(updated, count),
       });
     }
 
     await prisma.category.delete({ where: { id: category.id } });
-    res.json({ success: true });
+    res.json({ success: true, softDeleted: false });
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Erreur serveur' });

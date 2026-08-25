@@ -36,7 +36,11 @@ const ProfilePage = () => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'pending': return '#ff9800';
+      case 'confirmed': return '#fb8c00';
+      case 'preparing': return '#8d6e63';
       case 'ready': return '#4caf50';
+      case 'delivering': return '#26a69a';
+      case 'delivered':
       case 'completed': return '#2196f3';
       case 'cancelled': return '#f44336';
       default: return '#666';
@@ -44,13 +48,26 @@ const ProfilePage = () => {
   };
 
   const getStatusText = (status) => {
-    switch (status) {
-      case 'pending': return t('pending');
-      case 'ready': return t('ready');
-      case 'completed': return t('completed');
-      case 'cancelled': return t('cancelled');
-      default: return status;
-    }
+    const map = {
+      pending: t('pending'),
+      confirmed: t('confirmed'),
+      preparing: t('preparing'),
+      ready: t('ready'),
+      delivering: t('delivering'),
+      delivered: t('delivered'),
+      completed: t('completed'),
+      cancelled: t('cancelled'),
+    };
+    return map[status] || status;
+  };
+
+  const statusSteps = (status) => {
+    if (status === 'cancelled') return [];
+    const delivery = ['pending', 'confirmed', 'preparing', 'delivering', 'delivered'];
+    const pickup = ['pending', 'confirmed', 'preparing', 'ready', 'completed'];
+    const flow = status === 'delivering' || status === 'delivered' ? delivery : pickup;
+    const idx = flow.indexOf(status);
+    return flow.map((s, i) => ({ key: s, done: idx >= 0 && i <= idx, label: getStatusText(s) }));
   };
 
   const styles = {
@@ -208,7 +225,7 @@ const ProfilePage = () => {
         </div>
 
         <div style={styles.section}>
-          <h2 style={styles.sectionTitle}>{t('orders')}</h2>
+          <h2 style={styles.sectionTitle}>{t('myOrders')}</h2>
           {loading ? (
             <div>{t('loading')}</div>
           ) : orders.length === 0 ? (
@@ -229,19 +246,48 @@ const ProfilePage = () => {
                     {getStatusText(order.status)}
                   </div>
                 </div>
+                {order.status !== 'cancelled' && (
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: '0.9rem' }}>
+                    {statusSteps(order.status).map((step) => (
+                      <span
+                        key={step.key}
+                        style={{
+                          fontFamily: "'DM Sans', sans-serif",
+                          fontSize: '0.7rem',
+                          padding: '0.25rem 0.55rem',
+                          borderRadius: 999,
+                          background: step.done ? '#3A2E25' : 'rgba(58,46,37,.08)',
+                          color: step.done ? '#F7F5F2' : '#3A2E25',
+                        }}
+                      >
+                        {step.label}
+                      </span>
+                    ))}
+                  </div>
+                )}
                 <div style={styles.orderInfo}>{t('pickupTimeLabel')} : {order.pickup_time}</div>
-                <div style={styles.orderInfo}>{t('total')} : {order.total_price.toFixed(2)}€</div>
+                <div style={styles.orderInfo}>{t('total')} : {Number(order.total_price).toFixed(2)}€</div>
+                {order.notes && (
+                  <div style={{ ...styles.orderInfo, fontStyle: 'italic' }}>
+                    {t('orderNotesLabel')} : {order.notes}
+                  </div>
+                )}
                 {order.items && order.items.length > 0 && (
                   <div style={styles.orderItems}>
                     {order.items.map((item, i) => (
                       <div key={i} style={styles.orderItem}>
                         {item.product_name} x{item.quantity} - {(item.price * item.quantity).toFixed(2)}€
+                        {item.options?.length > 0 && (
+                          <div style={{ opacity: 0.65, fontSize: '0.8rem' }}>
+                            {item.options.map((o) => o.label).join(', ')}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
                 )}
                 <div style={{ ...styles.orderInfo, fontSize: '0.85rem', opacity: 0.6, marginTop: '0.5rem' }}>
-                  {new Date(order.created_at).toLocaleString('fr-FR')}
+                  {new Date(order.created_at).toLocaleString()}
                 </div>
               </div>
             ))

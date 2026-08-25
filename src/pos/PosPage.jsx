@@ -15,10 +15,14 @@ import {
   formatCents,
   calculateCashChange,
   CUSTOMER_TYPES,
+  eurosToCents,
 } from '../lib/pricingEngine';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import PosTicket from './PosTicket';
+import ProductOptionsModal from '../components/ProductOptionsModal';
+import { searchCustomers, createCustomer } from '../services/customersService';
+import { formatOptionsLabel } from '../lib/optionsEngine';
 import './pos.css';
 
 const CATEGORY_EMOJI = {
@@ -66,6 +70,10 @@ function PosShell() {
   const [statsOpen, setStatsOpen] = useState(false);
   const [stats, setStats] = useState(null);
   const [optionsProduct, setOptionsProduct] = useState(null);
+  const [customerQuery, setCustomerQuery] = useState('');
+  const [customerResults, setCustomerResults] = useState([]);
+  const [customerBusy, setCustomerBusy] = useState(false);
+  const customerTimer = useRef(null);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -131,12 +139,72 @@ function PosShell() {
     setTimeout(() => setFlashId(null), 350);
   };
 
-  const confirmOptions = (options) => {
+  const confirmOptions = (options, unitPriceEuros) => {
     if (!optionsProduct) return;
-    dispatch({ type: 'ADD_ITEM', payload: { product: optionsProduct, options } });
+    const unitPriceCents =
+      unitPriceEuros != null
+        ? eurosToCents(unitPriceEuros)
+        : optionsProduct.priceCents;
+    dispatch({
+      type: 'ADD_ITEM',
+      payload: { product: optionsProduct, options, unitPriceCents },
+    });
     setFlashId(optionsProduct.id);
     setTimeout(() => setFlashId(null), 350);
     setOptionsProduct(null);
+  };
+
+  useEffect(() => {
+    if (customerTimer.current) clearTimeout(customerTimer.current);
+    if (customerQuery.trim().length < 2) {
+      setCustomerResults([]);
+      return undefined;
+    }
+    customerTimer.current = setTimeout(async () => {
+      try {
+        const list = await searchCustomers(customerQuery.trim());
+        setCustomerResults(Array.isArray(list) ? list : []);
+      } catch {
+        setCustomerResults([]);
+      }
+    }, 280);
+    return () => {
+      if (customerTimer.current) clearTimeout(customerTimer.current);
+    };
+  }, [customerQuery]);
+
+  const selectCustomer = (c) => {
+    dispatch({ type: 'SET_CUSTOMER_USER', payload: c });
+    if (c.local_status) {
+      dispatch({ type: 'SET_CUSTOMER', payload: CUSTOMER_TYPES.RESIDENT });
+    }
+    setCustomerQuery('');
+    setCustomerResults([]);
+  };
+
+  const clearCustomer = () => {
+    dispatch({ type: 'SET_CUSTOMER_USER', payload: null });
+  };
+
+  const quickCreateCustomer = async () => {
+    const name = window.prompt(t('posCustomerNamePrompt'));
+    if (!name?.trim()) return;
+    const phone = window.prompt(t('posCustomerPhonePrompt')) || '';
+    const email = window.prompt(t('posCustomerEmailPrompt')) || '';
+    setCustomerBusy(true);
+    try {
+      const created = await createCustomer({
+        name: name.trim(),
+        phone: phone.trim() || null,
+        email: email.trim() || null,
+      });
+      selectCustomer(created);
+      showToast(t('posCustomerCreated'));
+    } catch (err) {
+      showToast(err.response?.data?.error || t('error'));
+    } finally {
+      setCustomerBusy(false);
+    }
   };
 
   const openPayment = () => {
@@ -177,6 +245,8 @@ function PosShell() {
         })),
         customerType: state.customerType,
         orderType: state.orderType,
+        customerId: state.customerUser?.id || null,
+        notes: state.notes || null,
         paymentMethod: payMethod,
         cashReceivedCents: receivedCents,
         idempotencyKey,
@@ -210,6 +280,8 @@ function PosShell() {
         })),
         customerType: state.customerType,
         orderType: state.orderType,
+        customerId: state.customerUser?.id || null,
+        notes: state.notes || null,
         hold: true,
         idempotencyKey: makeIdempotencyKey(),
       });
@@ -362,6 +434,39 @@ function PosShell() {
       {/* CENTRE */}
       <main className="pos-col pos-center">
         <div className="pos-center-top">
+          <div className="pos-customer-search">
+            <input
+              className="pos-search"
+              placeholder={t('posCustomerSearch')}
+              value={customerQuery}
+              onChange={(e) => setCustomerQuery(e.target.value)}
+            />
+            <button type="button" className="pos-pill" onClick={quickCreateCustomer} disabled={customerBusy}>
+              {t('posNewCustomer')}
+            </button>
+            {state.customerUser ? (
+              <div className="pos-customer-chip">
+                <span>
+                  {state.customerUser.name}
+                  {state.customerUser.phone ? ` · ${state.customerUser.phone}` : ''}
+                  {state.customerUser.email ? ` · ${state.customerUser.email}` : ''}
+                </span>
+                <button type="button" onClick={clearCustomer}>{t('posClearCustomer')}</button>
+              </div>
+            ) : (
+              <span className="pos-customer-anon">{t('posAnonymousCustomer')}</span>
+            )}
+            {customerResults.length > 0 && (
+              <div className="pos-customer-results">
+                {customerResults.map((c) => (
+                  <button key={c.id} type="button" onClick={() => selectCustomer(c)}>
+                    <strong>{c.name}</strong>
+                    <span>{[c.phone, c.email].filter(Boolean).join(' · ')}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           {[
             { key: CUSTOMER_TYPES.STANDARD, label: t('posCustomerStandard') },
             { key: CUSTOMER_TYPES.RESIDENT, label: t('posCustomerResident') },
@@ -484,9 +589,11 @@ function PosShell() {
               </div>
               {item.options && (
                 <div className="pos-cart-line-opts">
-                  {Object.entries(item.options)
-                    .map(([k, v]) => `${k}: ${v}`)
-                    .join(' · ')}
+                  {Array.isArray(item.options)
+                    ? formatOptionsLabel(item.options)
+                    : Object.entries(item.options)
+                        .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`)
+                        .join(' · ')}
                 </div>
               )}
               <div className="pos-qty">
@@ -552,6 +659,14 @@ function PosShell() {
             <strong>{formatCents(pricing.finalTotalCents)}</strong>
           </div>
         </div>
+
+        <textarea
+          className="pos-notes"
+          placeholder={t('orderNotesPlaceholder')}
+          value={state.notes || ''}
+          maxLength={500}
+          onChange={(e) => dispatch({ type: 'SET_NOTES', payload: e.target.value })}
+        />
 
         <div className="pos-actions">
           <button type="button" className="pos-btn pos-btn-secondary" onClick={handleHold} disabled={!state.items.length}>
@@ -664,8 +779,11 @@ function PosShell() {
 
       {/* Options produit */}
       {optionsProduct && (
-        <OptionsModal
-          product={optionsProduct}
+        <ProductOptionsModal
+          product={{
+            ...optionsProduct,
+            price: optionsProduct.price ?? (optionsProduct.priceCents || 0) / 100,
+          }}
           onClose={() => setOptionsProduct(null)}
           onConfirm={confirmOptions}
         />
@@ -706,55 +824,6 @@ function PosShell() {
       )}
 
       {toast && <div className="pos-toast">{toast}</div>}
-    </div>
-  );
-}
-
-function OptionsModal({ product, onClose, onConfirm }) {
-  const { t } = useLanguage();
-  const schema = product.optionsSchema || [];
-  const [values, setValues] = useState(() => {
-    const init = {};
-    schema.forEach((opt) => {
-      init[opt.name] = opt.choices?.[0] || '';
-    });
-    return init;
-  });
-
-  return (
-    <div className="pos-modal-backdrop" onClick={onClose}>
-      <div className="pos-modal" onClick={(e) => e.stopPropagation()}>
-        <h3>{product.name}</h3>
-        <p className="lead">{t('posChooseOptions')}</p>
-        {schema.map((opt) => (
-          <div key={opt.name} style={{ marginBottom: '0.9rem' }}>
-            <div style={{ marginBottom: '0.4rem', fontWeight: 500 }}>{opt.name}</div>
-            <div className="pos-quick-cash">
-              {(opt.choices || []).map((choice) => (
-                <button
-                  key={choice}
-                  type="button"
-                  style={{
-                    background: values[opt.name] === choice ? '#3A2E25' : undefined,
-                    color: values[opt.name] === choice ? '#F7F5F2' : undefined,
-                  }}
-                  onClick={() => setValues((v) => ({ ...v, [opt.name]: choice }))}
-                >
-                  {choice}
-                </button>
-              ))}
-            </div>
-          </div>
-        ))}
-        <div className="pos-modal-actions">
-          <button type="button" className="pos-btn pos-btn-secondary" onClick={onClose}>
-            {t('posCancel')}
-          </button>
-          <button type="button" className="pos-btn pos-btn-primary" onClick={() => onConfirm(values)}>
-            {t('posAdd')}
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

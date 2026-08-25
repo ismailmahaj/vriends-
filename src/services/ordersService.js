@@ -1,7 +1,7 @@
 import api from './api';
 
-export const createOrder = async (items, pickupTime, totalPrice) => {
-  const response = await api.post('/orders', { items, pickupTime });
+export const createOrder = async (items, pickupTime, totalPrice, notes = '') => {
+  const response = await api.post('/orders', { items, pickupTime, notes });
   return response.data;
 };
 

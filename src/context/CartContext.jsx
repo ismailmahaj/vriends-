@@ -1,6 +1,11 @@
 import { createContext, useContext, useState, useEffect } from 'react';
+import { computeUnitPriceEuros } from '../lib/optionsEngine';
 
 const CartContext = createContext(null);
+
+function lineKey(productId, options) {
+  return `${productId}::${JSON.stringify(options || null)}`;
+}
 
 export const CartProvider = ({ children }) => {
   const [items, setItems] = useState([]);
@@ -20,32 +25,50 @@ export const CartProvider = ({ children }) => {
     localStorage.setItem('cart', JSON.stringify(items));
   }, [items]);
 
-  const addItem = (product) => {
-    setItems(prev => {
-      const existing = prev.find(item => item.product.id === product.id);
+  const addItem = (product, options = null, unitPriceOverride = null) => {
+    const key = lineKey(product.id, options);
+    const unitPrice =
+      unitPriceOverride != null
+        ? Number(unitPriceOverride)
+        : computeUnitPriceEuros(product.price, product.optionsSchema, options || {});
+
+    setItems((prev) => {
+      const existing = prev.find((item) => item.key === key);
       if (existing) {
-        return prev.map(item =>
-          item.product.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
+        return prev.map((item) =>
+          item.key === key ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
-      return [...prev, { product, quantity: 1 }];
+      return [
+        ...prev,
+        {
+          key,
+          product: { ...product, price: unitPrice },
+          basePrice: product.price,
+          options: options || null,
+          unitPrice,
+          quantity: 1,
+        },
+      ];
     });
   };
 
-  const removeItem = (productId) => {
-    setItems(prev => prev.filter(item => item.product.id !== productId));
+  const removeItem = (keyOrProductId) => {
+    setItems((prev) =>
+      prev.filter((item) => item.key !== keyOrProductId && item.product.id !== keyOrProductId)
+    );
   };
 
-  const updateQty = (productId, quantity) => {
+  const updateQty = (keyOrProductId, quantity) => {
     if (quantity <= 0) {
-      removeItem(productId);
+      removeItem(keyOrProductId);
       return;
     }
-    setItems(prev =>
-      prev.map(item =>
-        item.product.id === productId ? { ...item, quantity } : item
+    setItems((prev) =>
+      prev.map((item) =>
+        item.key === keyOrProductId || item.product.id === keyOrProductId
+          ? { ...item, quantity }
+          : item
       )
     );
   };
@@ -56,18 +79,23 @@ export const CartProvider = ({ children }) => {
   };
 
   const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
-  const subtotal = items.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
+  const subtotal = items.reduce(
+    (sum, item) => sum + (item.unitPrice ?? item.product.price) * item.quantity,
+    0
+  );
 
   return (
-    <CartContext.Provider value={{
-      items,
-      addItem,
-      removeItem,
-      updateQty,
-      clearCart,
-      itemCount,
-      subtotal
-    }}>
+    <CartContext.Provider
+      value={{
+        items,
+        addItem,
+        removeItem,
+        updateQty,
+        clearCart,
+        itemCount,
+        subtotal,
+      }}
+    >
       {children}
     </CartContext.Provider>
   );

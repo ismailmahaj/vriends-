@@ -11,8 +11,10 @@ const CartPage = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [pickupTime, setPickupTime] = useState('');
+  const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const NOTES_MAX = 500;
 
   useEffect(() => {
     generatePickupTimes();
@@ -62,12 +64,19 @@ const CartPage = () => {
     setError('');
 
     try {
-      const orderItems = items.map(item => ({
+      const orderItems = items.map((item) => ({
         product_id: item.product.id,
-        quantity: item.quantity
+        quantity: item.quantity,
+        options: item.options || null,
       }));
 
-      await createOrder(orderItems, pickupTime, calculateTotal());
+      if (notes.trim().length > NOTES_MAX) {
+        setError(t('orderNotesTooLong'));
+        setLoading(false);
+        return;
+      }
+
+      await createOrder(orderItems, pickupTime, calculateTotal(), notes.trim());
       clearCart();
       navigate('/profile?success=1');
     } catch (err) {
@@ -262,34 +271,43 @@ const CartPage = () => {
           </h2>
           {error && <div style={styles.error}>{error}</div>}
           {items.map((item) => (
-            <div key={item.product.id} style={styles.item}>
+            <div key={item.key || item.product.id} style={styles.item}>
               <div style={styles.itemInfo}>
                 <div style={styles.itemName}>{item.product.name}</div>
-                <div style={styles.itemPrice}>{item.product.price.toFixed(2)}€</div>
+                <div style={styles.itemPrice}>{(item.unitPrice ?? item.product.price).toFixed(2)}€</div>
+                {item.options && (
+                  <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.8rem', opacity: 0.65, marginTop: 4 }}>
+                    {typeof item.options === 'object' && !Array.isArray(item.options)
+                      ? Object.entries(item.options).map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : v}`).join(' · ')
+                      : Array.isArray(item.options)
+                        ? item.options.map((o) => o.label).join(', ')
+                        : ''}
+                  </div>
+                )}
               </div>
               <div style={styles.itemControls}>
                 <button
-                  onClick={() => updateQty(item.product.id, item.quantity - 1)}
+                  onClick={() => updateQty(item.key || item.product.id, item.quantity - 1)}
                   style={styles.qtyButton}
                 >
                   −
                 </button>
                 <div style={styles.qty}>{item.quantity}</div>
                 <button
-                  onClick={() => updateQty(item.product.id, item.quantity + 1)}
+                  onClick={() => updateQty(item.key || item.product.id, item.quantity + 1)}
                   style={styles.qtyButton}
                 >
                   +
                 </button>
                 <button
-                  onClick={() => removeItem(item.product.id)}
+                  onClick={() => removeItem(item.key || item.product.id)}
                   style={styles.removeButton}
                 >
                   {t('remove')}
                 </button>
               </div>
               <div style={styles.itemTotal}>
-                {(item.product.price * item.quantity).toFixed(2)}€
+                {((item.unitPrice ?? item.product.price) * item.quantity).toFixed(2)}€
               </div>
             </div>
           ))}
@@ -339,6 +357,19 @@ const CartPage = () => {
               return null;
             }).filter(Boolean)}
           </select>
+          <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.9rem', color: '#3A2E25', display: 'block', marginTop: '1.25rem' }}>
+            {t('orderNotesLabel')}
+          </label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value.slice(0, NOTES_MAX))}
+            placeholder={t('orderNotesPlaceholder')}
+            rows={3}
+            style={{ ...styles.select, resize: 'vertical', minHeight: 88 }}
+          />
+          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.75rem', opacity: 0.55, marginTop: 4 }}>
+            {notes.length}/{NOTES_MAX}
+          </div>
           <button
             onClick={handleOrder}
             disabled={loading}
