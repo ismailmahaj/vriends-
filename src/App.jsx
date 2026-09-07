@@ -13,6 +13,7 @@ import ProfilePage from './pages/ProfilePage';
 import DashboardPage from './pages/DashboardPage';
 import ContactPage from './pages/ContactPage';
 import QRRedirectPage from './pages/QRRedirectPage';
+import TermsPage, { PrivacyPage } from './pages/TermsPage';
 import PosPage from './pos/PosPage';
 import PosOrdersPage from './pos/PosOrdersPage';
 
@@ -23,6 +24,8 @@ const AppRoutes = () => {
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/contact" element={<ContactPage />} />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/qr-redirect" element={<QRRedirectPage />} />
       <Route
         path="/login"

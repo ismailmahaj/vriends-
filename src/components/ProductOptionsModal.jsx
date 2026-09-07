@@ -36,7 +36,10 @@ export default function ProductOptionsModal({ product, onClose, onConfirm, accen
       const current = getSelectedIds(prev, group.id);
       const exists = current.includes(choiceId);
       let next = exists ? current.filter((id) => id !== choiceId) : [...current, choiceId];
-      if (next.length > group.max) next = next.slice(next.length - group.max);
+      if (group.max != null && next.length > group.max) {
+        // refuse silent trim — caller shows error via validate; keep at max by not adding
+        if (!exists) return prev;
+      }
       return { ...prev, [group.id]: next };
     });
   };
@@ -93,7 +96,9 @@ export default function ProductOptionsModal({ product, onClose, onConfirm, accen
               {group.required ? ' *' : ''}
               <span style={{ fontWeight: 400, opacity: 0.65, marginLeft: 8, fontSize: '0.8rem' }}>
                 {group.selection === 'multiple'
-                  ? `${t('posOptionsMulti')} (${group.min}-${group.max})`
+                  ? group.max == null
+                    ? t('posOptionsMultiUnlimited')
+                    : `${t('posOptionsMulti')} (${group.min}-${group.max})`
                   : t('posOptionsSingle')}
               </span>
             </div>

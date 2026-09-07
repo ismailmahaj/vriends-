@@ -15,6 +15,21 @@ export const getUsers = async () => {
   return response.data;
 };
 
+export const getCustomerDetail = async (id) => {
+  const response = await api.get(`/auth/users/${id}`);
+  return response.data;
+};
+
+export const updateCustomerAdmin = async (id, payload) => {
+  const response = await api.patch(`/auth/users/${id}`, payload);
+  return response.data;
+};
+
+export const updateMyProfile = async (payload) => {
+  const response = await api.patch('/auth/me', payload);
+  return response.data;
+};
+
 export const exportUsersCSV = async () => {
   try {
     const response = await api.get('/auth/export/csv', {

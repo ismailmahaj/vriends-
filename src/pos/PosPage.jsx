@@ -20,6 +20,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import PosTicket from './PosTicket';
+import { printPosTicket } from './printTicket';
 import ProductOptionsModal from '../components/ProductOptionsModal';
 import { searchCustomers, createCustomer } from '../services/customersService';
 import { formatOptionsLabel } from '../lib/optionsEngine';
@@ -242,6 +243,7 @@ function PosShell() {
           productId: i.productId,
           quantity: i.quantity,
           options: i.options,
+          lineNote: i.lineNote || null,
         })),
         customerType: state.customerType,
         orderType: state.orderType,
@@ -257,6 +259,17 @@ function PosShell() {
       dispatch({ type: 'CLEAR' });
       clearDraftStorage();
       showToast(result.paymentMessage || t('posPaymentAccepted'));
+
+      const autoPrint = String(state.settings?.autoPrint ?? state.settings?.pos_auto_print ?? 'false').toLowerCase() === 'true'
+        || state.settings?.autoPrint === true;
+      const trigger = state.settings?.autoPrintTrigger || state.settings?.pos_auto_print_trigger || 'paid';
+      const copies = Number(state.settings?.autoPrintCopies || state.settings?.pos_auto_print_copies || 1);
+      const widthMm = Number(state.settings?.ticketWidthMm || state.settings?.pos_ticket_width_mm || 80);
+      if (autoPrint && (trigger === 'paid' || trigger === 'created')) {
+        setTimeout(() => {
+          printPosTicket({ copies, widthMm });
+        }, 400);
+      }
     } catch (err) {
       console.error(err);
       showToast(err.response?.data?.error || t('posPaymentError'));
@@ -277,6 +290,7 @@ function PosShell() {
           productId: i.productId,
           quantity: i.quantity,
           options: i.options,
+          lineNote: i.lineNote || null,
         })),
         customerType: state.customerType,
         orderType: state.orderType,
@@ -343,7 +357,9 @@ function PosShell() {
   };
 
   const printTicket = () => {
-    window.print();
+    const copies = Number(state.settings?.autoPrintCopies || 1);
+    const widthMm = Number(state.settings?.ticketWidthMm || 80);
+    printPosTicket({ copies, widthMm });
   };
 
   useEffect(() => {
@@ -596,6 +612,20 @@ function PosShell() {
                         .join(' · ')}
                 </div>
               )}
+              <input
+                type="text"
+                className="pos-line-note"
+                maxLength={300}
+                placeholder={t('lineNotePlaceholder')}
+                value={item.lineNote || ''}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) =>
+                  dispatch({
+                    type: 'SET_LINE_NOTE',
+                    payload: { key: item.key, lineNote: e.target.value },
+                  })
+                }
+              />
               <div className="pos-qty">
                 <button
                   type="button"

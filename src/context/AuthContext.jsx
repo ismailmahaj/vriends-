@@ -10,7 +10,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const storedToken = localStorage.getItem('token');
     const storedUser = localStorage.getItem('user');
-    
+
     if (storedToken && storedUser) {
       setToken(storedToken);
       setUser(JSON.parse(storedUser));
@@ -34,13 +34,28 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('user');
   };
 
+  const updateUser = (userData) => {
+    setUser(userData);
+    localStorage.setItem('user', JSON.stringify(userData));
+  };
+
   const isAdmin = user?.role === 'admin';
   const isStaff = ['admin', 'manager', 'cashier'].includes(user?.role);
   const canManagePos = ['admin', 'manager'].includes(user?.role);
 
   return (
     <AuthContext.Provider
-      value={{ user, token, isAuthenticated, login, logout, isAdmin, isStaff, canManagePos }}
+      value={{
+        user,
+        token,
+        isAuthenticated,
+        login,
+        logout,
+        updateUser,
+        isAdmin,
+        isStaff,
+        canManagePos,
+      }}
     >
       {children}
     </AuthContext.Provider>

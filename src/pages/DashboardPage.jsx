@@ -1,15 +1,16 @@
-import { useState, useEffect } from 'react';
-import { getAllOrders, updateStatus } from '../services/ordersService';
+import { useState, useEffect, useMemo } from 'react';
+import { getAllOrders, updateStatus, updateOrderAddress } from '../services/ordersService';
 import { getProducts, toggleProduct, createProduct, updateProduct, deleteProduct } from '../services/productsService';
 import { getCategories, createCategory, deleteCategory, updateCategory } from '../services/categoriesService';
 import { getContacts, markTreated, deleteContact, exportCSV } from '../services/contactsService';
-import { getUsers, exportUsersCSV } from '../services/authService';
+import { getUsers, exportUsersCSV, getCustomerDetail, updateCustomerAdmin } from '../services/authService';
 import { getQRStats } from '../services/qrService';
 import { getSetting, updateSetting } from '../services/settingsService';
 import { getPosSettings, updatePosSettings } from '../services/posService';
 import { useLanguage } from '../context/LanguageContext';
 import { Link } from 'react-router-dom';
 import { editorRowsToSchema, schemaToEditorRows } from '../lib/optionsEngine';
+import ShopSettingsPanel from '../components/ShopSettingsPanel';
 
 const emptyProductForm = (defaultCategory = 'Autres') => ({
   name: '',
@@ -56,6 +57,62 @@ const optionsToPayload = (options) => editorRowsToSchema(options) || [];
 
 const optionsFromProduct = (product) => schemaToEditorRows(product?.optionsSchema);
 
+const formatAddressSnapshot = (snapshot) => {
+  if (!snapshot) return '';
+  const line1 = [snapshot.street, snapshot.houseNumber, snapshot.box ? `bte ${snapshot.box}` : null]
+    .filter(Boolean)
+    .join(' ');
+  const line2 = [snapshot.postalCode, snapshot.city].filter(Boolean).join(' ');
+  return [line1, line2, snapshot.country].filter(Boolean).join(', ');
+};
+
+const emptyAddressDraft = () => ({
+  street: '',
+  houseNumber: '',
+  box: '',
+  postalCode: '',
+  city: '',
+  country: '',
+  deliveryInstructions: '',
+});
+
+const addressFromOrder = (order) => {
+  const snap = order.address_snapshot;
+  if (snap) {
+    return {
+      street: snap.street || '',
+      houseNumber: snap.houseNumber || '',
+      box: snap.box || '',
+      postalCode: snap.postalCode || '',
+      city: snap.city || '',
+      country: snap.country || '',
+      deliveryInstructions: snap.deliveryInstructions || '',
+    };
+  }
+  const u = order.user;
+  if (u) {
+    return {
+      street: u.street || '',
+      houseNumber: u.house_number || '',
+      box: u.box || '',
+      postalCode: u.postal_code || '',
+      city: u.city || '',
+      country: u.country || '',
+      deliveryInstructions: u.delivery_instructions || '',
+    };
+  }
+  return emptyAddressDraft();
+};
+
+const userToAddressSnapshot = (user) => ({
+  street: user.street,
+  houseNumber: user.house_number,
+  box: user.box,
+  postalCode: user.postal_code,
+  city: user.city,
+  country: user.country,
+});
+
 const DashboardPage = () => {
   const { t } = useLanguage();
   const [activeTab, setActiveTab] = useState('orders');
@@ -81,6 +138,13 @@ const DashboardPage = () => {
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth <= 768 : false
   );
+  const [productSearch, setProductSearch] = useState('');
+  const [productCategoryFilter, setProductCategoryFilter] = useState('ALL');
+  const [selectedCustomerId, setSelectedCustomerId] = useState(null);
+  const [customerDetail, setCustomerDetail] = useState(null);
+  const [customerLoading, setCustomerLoading] = useState(false);
+  const [editingOrderAddressId, setEditingOrderAddressId] = useState(null);
+  const [addressDraft, setAddressDraft] = useState(() => emptyAddressDraft());
 
   useEffect(() => {
     const onResize = () => setIsMobile(window.innerWidth <= 768);
@@ -119,6 +183,10 @@ const DashboardPage = () => {
   }, []);
 
   const loadData = async () => {
+    if (activeTab === 'shop') {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       if (activeTab === 'orders') {
@@ -201,6 +269,115 @@ const DashboardPage = () => {
   }, {});
 
   const pendingCount = (Array.isArray(orders) ? orders : []).filter(o => o.status === 'pending').length;
+
+  const filteredProducts = useMemo(() => {
+    const q = productSearch.trim().toLowerCase();
+    return products.filter((product) => {
+      const productCategories = product.categories?.length
+        ? product.categories
+        : [product.category].filter(Boolean);
+
+      if (productCategoryFilter !== 'ALL' && !productCategories.includes(productCategoryFilter)) {
+        return false;
+      }
+
+      if (!q) return true;
+
+      const nameMatch = (product.name || '').toLowerCase().includes(q);
+      const skuMatch = (product.sku || '').toLowerCase().includes(q);
+      const categoryMatch = productCategories.some((cat) =>
+        (cat || '').toLowerCase().includes(q)
+      );
+
+      return nameMatch || skuMatch || categoryMatch;
+    });
+  }, [products, productSearch, productCategoryFilter]);
+
+  const copyPhone = async (phone) => {
+    try {
+      await navigator.clipboard.writeText(phone);
+    } catch (error) {
+      console.error('Erreur copie:', error);
+    }
+  };
+
+  const copyAddress = async (snapshot) => {
+    const text = formatAddressSnapshot(snapshot);
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch (error) {
+      console.error('Erreur copie:', error);
+    }
+  };
+
+  const loadCustomerDetail = async (userId) => {
+    setSelectedCustomerId(userId);
+    setCustomerLoading(true);
+    try {
+      const detail = await getCustomerDetail(userId);
+      setCustomerDetail(detail);
+    } catch (error) {
+      console.error('Erreur chargement client:', error);
+      setCustomerDetail(null);
+      setSelectedCustomerId(null);
+    } finally {
+      setCustomerLoading(false);
+    }
+  };
+
+  const handleSaveCustomerNotes = async () => {
+    if (!selectedCustomerId || !customerDetail) return;
+    try {
+      await updateCustomerAdmin(selectedCustomerId, { internal_notes: customerDetail.internal_notes || '' });
+      const detail = await getCustomerDetail(selectedCustomerId);
+      setCustomerDetail(detail);
+      if (activeTab === 'users') {
+        const data = await getUsers();
+        setUsers(data);
+      }
+    } catch (error) {
+      console.error('Erreur sauvegarde notes:', error);
+      alert(error.response?.data?.error || t('error'));
+    }
+  };
+
+  const handleStartEditOrderAddress = (order) => {
+    setEditingOrderAddressId(order.id);
+    setAddressDraft(addressFromOrder(order));
+  };
+
+  const handleCancelEditOrderAddress = () => {
+    setEditingOrderAddressId(null);
+    setAddressDraft(emptyAddressDraft());
+  };
+
+  const handleSaveOrderAddress = async (order) => {
+    const activeStatuses = ['confirmed', 'preparing', 'ready', 'delivering'];
+    const needsConfirm = activeStatuses.includes(order.status);
+    if (needsConfirm && !window.confirm('Cette commande est déjà confirmée. Confirmer la modification de l\'adresse ?')) {
+      return;
+    }
+    try {
+      await updateOrderAddress(order.id, addressDraft, needsConfirm);
+      setEditingOrderAddressId(null);
+      setAddressDraft(emptyAddressDraft());
+      const data = await getAllOrders();
+      setOrders(data);
+    } catch (error) {
+      console.error('Erreur mise à jour adresse:', error);
+      alert(error.response?.data?.error || t('error'));
+    }
+  };
+
+  const inputStyle = {
+    padding: '0.65rem 0.85rem',
+    border: '1.5px solid rgba(58,46,37,.2)',
+    background: '#F7F5F2',
+    fontFamily: "'DM Sans', sans-serif",
+    fontSize: '0.9rem',
+    width: '100%',
+  };
 
   const styles = {
     page: {
@@ -418,9 +595,19 @@ const DashboardPage = () => {
           >
             {t('posSettingsTab')}
           </div>
+          <div
+            style={{ ...styles.tab, ...(activeTab === 'shop' && styles.tabActive) }}
+            onClick={() => setActiveTab('shop')}
+          >
+            {t('shopSettings')}
+          </div>
         </div>
 
-        {loading ? (
+        {activeTab === 'shop' ? (
+          <div style={styles.section}>
+            <ShopSettingsPanel />
+          </div>
+        ) : loading ? (
           <div>{t('loading')}</div>
         ) : (
           <div style={styles.section}>
@@ -436,8 +623,149 @@ const DashboardPage = () => {
                           <div style={styles.orderHeader}>
                             <div>
                               <div style={styles.orderInfo}>
-                                <strong>{t('posOrderHash')} #{order.id}</strong> - {order.user?.name || 'N/A'} ({order.user?.email || 'N/A'})
+                                <strong>{t('posOrderHash')} #{order.id}</strong> — {order.user?.name || 'N/A'}
                               </div>
+                              {order.user?.email && (
+                                <div style={styles.orderInfo}>
+                                  {t('email')}:{' '}
+                                  <a href={`mailto:${order.user.email}`} style={{ color: '#3A2E25' }}>
+                                    {order.user.email}
+                                  </a>
+                                </div>
+                              )}
+                              {order.user?.phone && (
+                                <div style={{ ...styles.orderInfo, display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                  <span>
+                                    {t('phone')}:{' '}
+                                    <a href={`tel:${order.user.phone}`} style={{ color: '#3A2E25' }}>
+                                      {order.user.phone}
+                                    </a>
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => copyPhone(order.user.phone)}
+                                    style={{
+                                      ...styles.button,
+                                      background: 'transparent',
+                                      border: '1px solid rgba(58,46,37,.25)',
+                                      color: '#3A2E25',
+                                      padding: '0.25rem 0.5rem',
+                                      margin: 0,
+                                      fontSize: '0.75rem',
+                                    }}
+                                    title={t('phone')}
+                                  >
+                                    📋
+                                  </button>
+                                </div>
+                              )}
+                              {order.address_snapshot && formatAddressSnapshot(order.address_snapshot) && (
+                                <div style={styles.orderInfo}>
+                                  {t('addressField')}: {formatAddressSnapshot(order.address_snapshot)}
+                                </div>
+                              )}
+                              <div style={{ marginTop: '0.35rem', marginBottom: '0.35rem' }}>
+                                <button
+                                  type="button"
+                                  onClick={() => handleStartEditOrderAddress(order)}
+                                  style={{
+                                    ...styles.button,
+                                    background: 'transparent',
+                                    border: '1px solid rgba(58,46,37,.25)',
+                                    color: '#3A2E25',
+                                    padding: '0.35rem 0.75rem',
+                                    margin: 0,
+                                    fontSize: '0.8rem',
+                                  }}
+                                >
+                                  Modifier adresse
+                                </button>
+                              </div>
+                              {editingOrderAddressId === order.id && (
+                                <div
+                                  style={{
+                                    marginTop: '0.75rem',
+                                    padding: '1rem',
+                                    background: '#E6DCCB',
+                                    borderRadius: '4px',
+                                  }}
+                                >
+                                  <div
+                                    style={{
+                                      display: 'grid',
+                                      gridTemplateColumns: isMobile ? '1fr' : 'repeat(2, 1fr)',
+                                      gap: '0.6rem',
+                                      marginBottom: '0.75rem',
+                                    }}
+                                  >
+                                    <input
+                                      value={addressDraft.street}
+                                      onChange={(e) => setAddressDraft((d) => ({ ...d, street: e.target.value }))}
+                                      placeholder="Rue"
+                                      style={inputStyle}
+                                    />
+                                    <input
+                                      value={addressDraft.houseNumber}
+                                      onChange={(e) => setAddressDraft((d) => ({ ...d, houseNumber: e.target.value }))}
+                                      placeholder="N°"
+                                      style={inputStyle}
+                                    />
+                                    <input
+                                      value={addressDraft.box}
+                                      onChange={(e) => setAddressDraft((d) => ({ ...d, box: e.target.value }))}
+                                      placeholder="Boîte"
+                                      style={inputStyle}
+                                    />
+                                    <input
+                                      value={addressDraft.postalCode}
+                                      onChange={(e) => setAddressDraft((d) => ({ ...d, postalCode: e.target.value }))}
+                                      placeholder="Code postal"
+                                      style={inputStyle}
+                                    />
+                                    <input
+                                      value={addressDraft.city}
+                                      onChange={(e) => setAddressDraft((d) => ({ ...d, city: e.target.value }))}
+                                      placeholder="Ville"
+                                      style={inputStyle}
+                                    />
+                                    <input
+                                      value={addressDraft.country}
+                                      onChange={(e) => setAddressDraft((d) => ({ ...d, country: e.target.value }))}
+                                      placeholder="Pays"
+                                      style={inputStyle}
+                                    />
+                                  </div>
+                                  <textarea
+                                    value={addressDraft.deliveryInstructions}
+                                    onChange={(e) => setAddressDraft((d) => ({ ...d, deliveryInstructions: e.target.value }))}
+                                    placeholder="Instructions de livraison"
+                                    rows={2}
+                                    style={{ ...inputStyle, resize: 'vertical', marginBottom: '0.75rem' }}
+                                  />
+                                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSaveOrderAddress(order)}
+                                      style={{ ...styles.button, background: '#3A2E25', color: '#F7F5F2', margin: 0 }}
+                                    >
+                                      {t('save')}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={handleCancelEditOrderAddress}
+                                      style={{
+                                        ...styles.button,
+                                        background: 'transparent',
+                                        border: '1px solid rgba(58,46,37,.3)',
+                                        color: '#3A2E25',
+                                        margin: 0,
+                                      }}
+                                    >
+                                      {t('cancel')}
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
                               <div style={styles.orderInfo}>{t('orderTotal')} : {order.total_price.toFixed(2)}€</div>
                               {order.notes && (
                                 <div style={{ ...styles.orderInfo, fontStyle: 'italic' }}>
@@ -463,8 +791,15 @@ const DashboardPage = () => {
                           {order.items && order.items.length > 0 && (
                             <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(58,46,37,.12)' }}>
                               {order.items.map((item, i) => (
-                                <div key={i} style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.9rem', marginBottom: '0.3rem' }}>
-                                  {item.product_name} x{item.quantity} - {(item.price * item.quantity).toFixed(2)}€
+                                <div key={i} style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.9rem', marginBottom: '0.5rem' }}>
+                                  <div>
+                                    {item.product_name} x{item.quantity} - {(item.price * item.quantity).toFixed(2)}€
+                                  </div>
+                                  {item.line_note && (
+                                    <div style={{ fontSize: '0.85rem', fontStyle: 'italic', opacity: 0.75, marginTop: '0.15rem' }}>
+                                      {t('lineNoteLabel')}: {item.line_note}
+                                    </div>
+                                  )}
                                 </div>
                               ))}
                             </div>
@@ -968,7 +1303,64 @@ const DashboardPage = () => {
                 <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.8rem', color: '#3A2E25', marginBottom: '1rem' }}>
                   {t('products')}
                 </h3>
-                {products.map((product) => (
+                <input
+                  value={productSearch}
+                  onChange={(e) => setProductSearch(e.target.value)}
+                  placeholder={t('productSearchPlaceholder')}
+                  style={{
+                    width: '100%',
+                    maxWidth: '480px',
+                    padding: '0.75rem 1rem',
+                    marginBottom: '1rem',
+                    border: '1.5px solid rgba(58,46,37,.2)',
+                    background: '#F7F5F2',
+                    fontFamily: "'DM Sans', sans-serif",
+                    fontSize: '0.95rem',
+                  }}
+                />
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '1.5rem' }}>
+                  <button
+                    type="button"
+                    onClick={() => setProductCategoryFilter('ALL')}
+                    style={{
+                      background: productCategoryFilter === 'ALL' ? '#3A2E25' : '#F7F5F2',
+                      color: productCategoryFilter === 'ALL' ? '#F7F5F2' : '#3A2E25',
+                      border: '1px solid rgba(58,46,37,.2)',
+                      padding: '0.45rem 0.85rem',
+                      borderRadius: '999px',
+                      fontFamily: "'DM Sans', sans-serif",
+                      fontSize: '0.82rem',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {t('posAllCategories')}
+                  </button>
+                  {categories.map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setProductCategoryFilter(cat.name)}
+                      style={{
+                        background: productCategoryFilter === cat.name ? '#3A2E25' : '#F7F5F2',
+                        color: productCategoryFilter === cat.name ? '#F7F5F2' : '#3A2E25',
+                        border: '1px solid rgba(58,46,37,.2)',
+                        padding: '0.45rem 0.85rem',
+                        borderRadius: '999px',
+                        fontFamily: "'DM Sans', sans-serif",
+                        fontSize: '0.82rem',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      {cat.name}
+                    </button>
+                  ))}
+                </div>
+                {filteredProducts.length === 0 ? (
+                  <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.95rem', color: '#1C1C1C', opacity: 0.7, marginBottom: '1rem' }}>
+                    {t('noProductResults')}
+                  </div>
+                ) : null}
+                {filteredProducts.map((product) => (
                   <div key={product.id} style={styles.productCard}>
                     <div style={{ display: 'flex', gap: '0.9rem', flex: 1, alignItems: 'center' }}>
                       {product.imageUrl ? (
@@ -1331,7 +1723,9 @@ const DashboardPage = () => {
                 >
                   ↓ {t('exportCSV')} ({users.length} utilisateur{users.length > 1 ? 's' : ''})
                 </button>
-                {users.map((user) => (
+                {users.map((user) => {
+                  const userAddressText = formatAddressSnapshot(userToAddressSnapshot(user));
+                  return (
                   <div key={user.id} style={styles.contactCard}>
                     <div style={styles.contactHeader}>
                       <div style={styles.contactName}>{user.name}</div>
@@ -1348,6 +1742,21 @@ const DashboardPage = () => {
                     <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.9rem', color: '#1C1C1C', marginBottom: '0.5rem' }}>
                       {user.email}
                     </div>
+                    {user.phone && (
+                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.9rem', color: '#1C1C1C', marginBottom: '0.5rem' }}>
+                        {t('phone')}: {user.phone}
+                      </div>
+                    )}
+                    {userAddressText && (
+                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.9rem', color: '#1C1C1C', marginBottom: '0.5rem' }}>
+                        {t('addressField')}: {userAddressText}
+                      </div>
+                    )}
+                    {user.internal_notes && (
+                      <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.85rem', color: '#1C1C1C', opacity: 0.75, marginBottom: '0.5rem', fontStyle: 'italic' }}>
+                        Notes internes: {user.internal_notes}
+                      </div>
+                    )}
                     <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.9rem', color: '#1C1C1C', marginBottom: '0.5rem' }}>
                       {user.local_status && (
                         <span style={{ color: '#2e7d32', fontWeight: 500 }}>✓ {t('localBadge')}</span>
@@ -1358,11 +1767,131 @@ const DashboardPage = () => {
                         </span>
                       )}
                     </div>
-                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.85rem', color: '#1C1C1C', opacity: 0.6 }}>
+                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.85rem', color: '#1C1C1C', opacity: 0.6, marginBottom: '0.75rem' }}>
                       {t('posRegisteredOn')} {new Date(user.created_at).toLocaleDateString()}
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => loadCustomerDetail(user.id)}
+                      disabled={customerLoading && selectedCustomerId === user.id}
+                      style={{ ...styles.button, background: '#3A2E25', color: '#F7F5F2', margin: 0 }}
+                    >
+                      {customerLoading && selectedCustomerId === user.id ? t('loading') : 'Fiche client'}
+                    </button>
+                    {customerDetail && selectedCustomerId === user.id && (
+                      <div style={{ marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid rgba(58,46,37,.12)' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: isMobile ? '1fr' : 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1rem' }}>
+                          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.9rem', color: '#1C1C1C' }}>
+                            <strong style={{ color: '#3A2E25' }}>Commandes</strong>
+                            <div>{customerDetail.stats?.order_count ?? 0}</div>
+                          </div>
+                          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.9rem', color: '#1C1C1C' }}>
+                            <strong style={{ color: '#3A2E25' }}>Total dépensé</strong>
+                            <div>{Number(customerDetail.stats?.total_spent ?? 0).toFixed(2)}€</div>
+                          </div>
+                          <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.9rem', color: '#1C1C1C' }}>
+                            <strong style={{ color: '#3A2E25' }}>Dernière commande</strong>
+                            <div>
+                              {customerDetail.stats?.last_order_at
+                                ? new Date(customerDetail.stats.last_order_at).toLocaleString('fr-FR')
+                                : '—'}
+                            </div>
+                          </div>
+                        </div>
+                        <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.9rem', color: '#1C1C1C', marginBottom: '1rem' }}>
+                          <strong style={{ color: '#3A2E25', display: 'block', marginBottom: '0.35rem' }}>{t('addressField')}</strong>
+                          {customerDetail.street && <div>Rue: {customerDetail.street} {customerDetail.house_number}{customerDetail.box ? ` bte ${customerDetail.box}` : ''}</div>}
+                          {(customerDetail.postal_code || customerDetail.city) && (
+                            <div>{customerDetail.postal_code} {customerDetail.city}</div>
+                          )}
+                          {customerDetail.country && <div>{customerDetail.country}</div>}
+                          {customerDetail.delivery_instructions && (
+                            <div style={{ fontStyle: 'italic', opacity: 0.8, marginTop: '0.25rem' }}>
+                              {customerDetail.delivery_instructions}
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ marginBottom: '1rem' }}>
+                          <label style={{ display: 'block', fontFamily: "'DM Sans', sans-serif", fontSize: '0.85rem', color: '#3A2E25', marginBottom: '0.35rem' }}>
+                            Notes internes
+                          </label>
+                          <textarea
+                            value={customerDetail.internal_notes || ''}
+                            onChange={(e) => setCustomerDetail((prev) => ({ ...prev, internal_notes: e.target.value }))}
+                            rows={3}
+                            style={{ ...inputStyle, resize: 'vertical' }}
+                          />
+                          <button
+                            type="button"
+                            onClick={handleSaveCustomerNotes}
+                            style={{ ...styles.button, background: '#3A2E25', color: '#F7F5F2', marginTop: '0.5rem', marginLeft: 0 }}
+                          >
+                            {t('save')}
+                          </button>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                          {customerDetail.phone && (
+                            <>
+                              <a
+                                href={`tel:${customerDetail.phone}`}
+                                style={{ ...styles.button, background: 'transparent', border: '1px solid rgba(58,46,37,.25)', color: '#3A2E25', textDecoration: 'none', margin: 0 }}
+                              >
+                                📞 Appeler
+                              </a>
+                              <button
+                                type="button"
+                                onClick={() => copyPhone(customerDetail.phone)}
+                                style={{ ...styles.button, background: 'transparent', border: '1px solid rgba(58,46,37,.25)', color: '#3A2E25', margin: 0 }}
+                              >
+                                📋 Copier tél.
+                              </button>
+                            </>
+                          )}
+                          {customerDetail.email && (
+                            <a
+                              href={`mailto:${customerDetail.email}`}
+                              style={{ ...styles.button, background: 'transparent', border: '1px solid rgba(58,46,37,.25)', color: '#3A2E25', textDecoration: 'none', margin: 0 }}
+                            >
+                              ✉️ Email
+                            </a>
+                          )}
+                          {formatAddressSnapshot(userToAddressSnapshot(customerDetail)) && (
+                            <button
+                              type="button"
+                              onClick={() => copyAddress(userToAddressSnapshot(customerDetail))}
+                              style={{ ...styles.button, background: 'transparent', border: '1px solid rgba(58,46,37,.25)', color: '#3A2E25', margin: 0 }}
+                            >
+                              📋 Copier adresse
+                            </button>
+                          )}
+                        </div>
+                        {customerDetail.orders?.length > 0 && (
+                          <div>
+                            <strong style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.85rem', color: '#3A2E25', display: 'block', marginBottom: '0.5rem' }}>
+                              Commandes récentes
+                            </strong>
+                            {customerDetail.orders.slice(0, 10).map((o) => (
+                              <div
+                                key={o.id}
+                                style={{
+                                  fontFamily: "'DM Sans', sans-serif",
+                                  fontSize: '0.85rem',
+                                  color: '#1C1C1C',
+                                  padding: '0.4rem 0',
+                                  borderBottom: '1px solid rgba(58,46,37,.08)',
+                                }}
+                              >
+                                #{o.id} · {o.status} · {Number(o.total_price).toFixed(2)}€ ·{' '}
+                                {new Date(o.created_at).toLocaleString('fr-FR')}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 

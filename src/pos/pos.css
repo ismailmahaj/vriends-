@@ -452,6 +452,18 @@
   color: var(--pos-muted);
 }
 
+.pos-line-note {
+  grid-column: 1 / -1;
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid rgba(58, 46, 37, 0.18);
+  background: #f7f5f2;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.78rem;
+  color: #3a2e25;
+}
+
 .pos-cart-line-price {
   font-weight: 500;
   align-self: start;
@@ -839,8 +851,12 @@
   background: rgba(230, 220, 203, 0.4);
 }
 
-/* Ticket thermique 80mm */
+/* Ticket thermique — masqué à l'écran */
 .pos-ticket {
+  display: none;
+}
+
+.pos-ticket-print-stack {
   display: none;
 }
 
@@ -850,22 +866,57 @@
   }
 
   .pos-ticket,
-  .pos-ticket * {
+  .pos-ticket *,
+  .pos-ticket-print-stack,
+  .pos-ticket-print-stack * {
     visibility: visible !important;
   }
 
-  .pos-ticket {
+  .pos-ticket-print-stack {
     display: block !important;
     position: absolute;
     left: 0;
     top: 0;
+  }
+
+  .pos-ticket {
+    display: block !important;
+    position: relative;
+    left: 0;
+    top: 0;
     width: 80mm;
     max-width: 80mm;
-    padding: 4mm;
+    padding: 3mm 2mm;
+    margin: 0;
     font-family: 'Courier New', Courier, monospace;
-    font-size: 12px;
+    font-size: 11px;
+    line-height: 1.25;
     color: #000;
     background: #fff;
+    overflow: hidden;
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+    white-space: normal;
+  }
+
+  body.ticket-width-58 .pos-ticket,
+  body.ticket-width-58 .pos-ticket-print-stack .pos-ticket {
+    width: 54mm;
+    max-width: 54mm;
+    padding: 2mm 1.5mm;
+    font-size: 10px;
+  }
+
+  body.ticket-width-80 .pos-ticket,
+  body.ticket-width-80 .pos-ticket-print-stack .pos-ticket {
+    width: 72mm;
+    max-width: 72mm;
+  }
+
+  .pos-ticket-page-break {
+    break-after: page;
+    page-break-after: always;
+    height: 0;
   }
 
   .pos-ticket .center {
@@ -878,18 +929,25 @@
 
   .pos-ticket .line {
     border-top: 1px dashed #000;
-    margin: 6px 0;
+    margin: 4px 0;
   }
 
   .pos-ticket .row {
     display: flex;
     justify-content: space-between;
-    gap: 8px;
+    gap: 4px;
+    flex-wrap: wrap;
+  }
+
+  .pos-ticket .row span:first-child {
+    flex: 1 1 60%;
+    min-width: 0;
+    word-break: break-word;
   }
 
   @page {
-    size: 80mm auto;
-    margin: 0;
+    margin: 2mm;
+    size: auto;
   }
 }
 

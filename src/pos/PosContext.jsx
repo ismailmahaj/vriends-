@@ -72,11 +72,22 @@ function reducer(state, action) {
                 : product.priceCents,
             quantity: 1,
             options: options || null,
+            lineNote: '',
             available: product.available,
           },
         ];
       }
       return { ...state, items, selectedLineKey: key };
+    }
+    case 'SET_LINE_NOTE': {
+      const { key, lineNote } = action.payload;
+      const cleaned = String(lineNote || '')
+        .replace(/[<>]/g, '')
+        .slice(0, 300);
+      return {
+        ...state,
+        items: state.items.map((i) => (i.key === key ? { ...i, lineNote: cleaned } : i)),
+      };
     }
     case 'SET_QTY': {
       const { key, quantity } = action.payload;

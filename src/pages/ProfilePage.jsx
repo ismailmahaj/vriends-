@@ -2,18 +2,41 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getMyOrders } from '../services/ordersService';
+import { updateMyProfile } from '../services/authService';
 import { useLanguage } from '../context/LanguageContext';
 
 const ProfilePage = () => {
   const { t } = useLanguage();
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [addr, setAddr] = useState({
+    phone: '',
+    street: '',
+    houseNumber: '',
+    box: '',
+    postalCode: '',
+    city: '',
+    country: 'Belgique',
+    deliveryInstructions: '',
+  });
+  const [addrMsg, setAddrMsg] = useState('');
+  const [addrSaving, setAddrSaving] = useState(false);
 
   useEffect(() => {
     if (user) {
       loadOrders();
+      setAddr({
+        phone: user.phone || '',
+        street: user.street || '',
+        houseNumber: user.house_number || '',
+        box: user.box || '',
+        postalCode: user.postal_code || '',
+        city: user.city || '',
+        country: user.country || 'Belgique',
+        deliveryInstructions: user.delivery_instructions || '',
+      });
     }
   }, [user]);
 
@@ -225,6 +248,83 @@ const ProfilePage = () => {
         </div>
 
         <div style={styles.section}>
+          <h2 style={styles.sectionTitle}>Adresse</h2>
+          <div style={{ display: 'grid', gap: '0.65rem', maxWidth: 480 }}>
+            {[
+              ['phone', 'Téléphone'],
+              ['street', 'Rue'],
+              ['houseNumber', 'Numéro'],
+              ['box', 'Boîte'],
+              ['postalCode', 'Code postal'],
+              ['city', 'Ville'],
+              ['country', 'Pays'],
+            ].map(([key, label]) => (
+              <label key={key} style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.85rem', color: '#3A2E25' }}>
+                {label}
+                <input
+                  value={addr[key]}
+                  onChange={(e) => setAddr((a) => ({ ...a, [key]: e.target.value }))}
+                  style={{
+                    display: 'block',
+                    width: '100%',
+                    marginTop: 4,
+                    padding: '0.7rem 0.85rem',
+                    border: '1.5px solid rgba(58,46,37,.2)',
+                    background: '#F7F5F2',
+                    fontFamily: "'DM Sans', sans-serif",
+                  }}
+                />
+              </label>
+            ))}
+            <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.85rem', color: '#3A2E25' }}>
+              Instructions de livraison
+              <textarea
+                value={addr.deliveryInstructions}
+                onChange={(e) => setAddr((a) => ({ ...a, deliveryInstructions: e.target.value }))}
+                rows={2}
+                style={{
+                  display: 'block',
+                  width: '100%',
+                  marginTop: 4,
+                  padding: '0.7rem 0.85rem',
+                  border: '1.5px solid rgba(58,46,37,.2)',
+                  background: '#F7F5F2',
+                  fontFamily: "'DM Sans', sans-serif",
+                }}
+              />
+            </label>
+            <button
+              type="button"
+              disabled={addrSaving}
+              onClick={async () => {
+                setAddrSaving(true);
+                setAddrMsg('');
+                try {
+                  const res = await updateMyProfile(addr);
+                  updateUser(res.user);
+                  setAddrMsg('Adresse enregistrée');
+                } catch (e) {
+                  setAddrMsg(e.response?.data?.error || t('error'));
+                } finally {
+                  setAddrSaving(false);
+                }
+              }}
+              style={{
+                ...styles.button,
+                marginTop: '0.5rem',
+                width: 'auto',
+                alignSelf: 'start',
+              }}
+            >
+              {addrSaving ? '…' : t('save')}
+            </button>
+            {addrMsg && (
+              <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.85rem' }}>{addrMsg}</div>
+            )}
+          </div>
+        </div>
+
+        <div style={styles.section}>
           <h2 style={styles.sectionTitle}>{t('myOrders')}</h2>
           {loading ? (
             <div>{t('loading')}</div>
@@ -280,6 +380,11 @@ const ProfilePage = () => {
                         {item.options?.length > 0 && (
                           <div style={{ opacity: 0.65, fontSize: '0.8rem' }}>
                             {item.options.map((o) => o.label).join(', ')}
+                          </div>
+                        )}
+                        {item.line_note && (
+                          <div style={{ opacity: 0.75, fontSize: '0.8rem', fontStyle: 'italic' }}>
+                            {t('lineNoteLabel')} : {item.line_note}
                           </div>
                         )}
                       </div>

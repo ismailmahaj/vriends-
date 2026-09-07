@@ -48,9 +48,23 @@ export const CartProvider = ({ children }) => {
           options: options || null,
           unitPrice,
           quantity: 1,
+          lineNote: '',
         },
       ];
     });
+  };
+
+  const updateLineNote = (keyOrProductId, lineNote) => {
+    const cleaned = String(lineNote || '')
+      .replace(/[<>]/g, '')
+      .slice(0, 300);
+    setItems((prev) =>
+      prev.map((item) =>
+        item.key === keyOrProductId || item.product.id === keyOrProductId
+          ? { ...item, lineNote: cleaned }
+          : item
+      )
+    );
   };
 
   const removeItem = (keyOrProductId) => {
@@ -91,6 +105,7 @@ export const CartProvider = ({ children }) => {
         addItem,
         removeItem,
         updateQty,
+        updateLineNote,
         clearCart,
         itemCount,
         subtotal,

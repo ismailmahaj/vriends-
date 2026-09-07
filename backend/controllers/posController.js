@@ -13,6 +13,7 @@ const {
   computeUnitPriceEuros,
   buildOptionsSnapshot,
 } = require('../lib/optionsEngine.cjs');
+const { getPosOrdersAcceptingState, sanitizeLineNote, buildAddressSnapshot } = require('../lib/shopSettings');
 
 const VALID_CUSTOMER = new Set(Object.values(CUSTOMER_TYPES));
 const VALID_ORDER_TYPE = new Set(['DINE_IN', 'TAKEAWAY', 'DELIVERY']);
@@ -28,6 +29,10 @@ async function getPosSettingsFromDb() {
     'pos_late_surcharge_start_time',
     'pos_shop_name',
     'pos_shop_address',
+    'pos_auto_print',
+    'pos_auto_print_trigger',
+    'pos_auto_print_copies',
+    'pos_ticket_width_mm',
   ];
   const rows = await prisma.setting.findMany({
     where: { key: { in: keys } },
@@ -43,6 +48,10 @@ async function getPosSettingsFromDb() {
     lateSurchargeStartTime: map.pos_late_surcharge_start_time || DEFAULT_POS_SETTINGS.lateSurchargeStartTime,
     shopName: map.pos_shop_name || 'VRIENDS',
     shopAddress: map.pos_shop_address || 'Poperinge, Belgique',
+    autoPrint: String(map.pos_auto_print || 'false').toLowerCase() === 'true',
+    autoPrintTrigger: map.pos_auto_print_trigger || 'paid',
+    autoPrintCopies: Number(map.pos_auto_print_copies || 1),
+    ticketWidthMm: Number(map.pos_ticket_width_mm || 80),
   };
 }
 
@@ -120,6 +129,7 @@ function serializeOrder(order) {
     appliedRules: order.appliedRules || [],
     taxCents: order.taxCents,
     notes: order.notes,
+    addressSnapshot: order.addressSnapshot || null,
     heldAt: order.heldAt,
     paidAt: order.paidAt,
     createdAt: order.createdAt,
@@ -132,6 +142,7 @@ function serializeOrder(order) {
       quantity: it.quantity,
       options: it.optionsJson || null,
       subtotalCents: it.subtotalCents,
+      lineNote: it.lineNote || null,
     })),
   };
 }
@@ -184,6 +195,7 @@ async function resolveLineItems(rawItems) {
     const unitPriceEuros = computeUnitPriceEuros(product.price, schema, selection || {});
     const unitPriceCents = eurosToCents(unitPriceEuros);
     const snapshot = schema?.length ? buildOptionsSnapshot(schema, selection || {}) : null;
+    const lineNote = sanitizeLineNote(item.lineNote || item.line_note || item.note);
 
     lines.push({
       productId: product.id,
@@ -192,6 +204,7 @@ async function resolveLineItems(rawItems) {
       quantity,
       options: snapshot || selection || null,
       subtotalCents: unitPriceCents * quantity,
+      lineNote,
     });
   }
 
@@ -310,6 +323,14 @@ const toggleFavorite = async (req, res) => {
 
 const createOrder = async (req, res) => {
   try {
+    const posGate = await getPosOrdersAcceptingState();
+    if (!posGate.accepting) {
+      return res.status(403).json({
+        error: 'La prise de commandes caisse est désactivée dans les paramètres',
+        code: 'POS_ORDERS_CLOSED',
+      });
+    }
+
     const {
       items,
       customerType = 'STANDARD',
@@ -320,6 +341,7 @@ const createOrder = async (req, res) => {
       idempotencyKey,
       notes,
       customerId = null,
+      address = null,
     } = req.body || {};
 
     const notesClean = notes != null ? String(notes).trim() : '';
@@ -328,13 +350,16 @@ const createOrder = async (req, res) => {
     }
 
     let resolvedCustomerId = null;
+    let customerUser = null;
     if (customerId != null && customerId !== '') {
-      const customer = await prisma.user.findFirst({
+      customerUser = await prisma.user.findFirst({
         where: { id: Number(customerId), role: 'client' },
       });
-      if (!customer) return res.status(400).json({ error: 'Client introuvable' });
-      resolvedCustomerId = customer.id;
+      if (!customerUser) return res.status(400).json({ error: 'Client introuvable' });
+      resolvedCustomerId = customerUser.id;
     }
+
+    const addressSnapshot = buildAddressSnapshot(address || customerUser);
 
     if (idempotencyKey) {
       const existing = await prisma.posOrder.findUnique({ where: { idempotencyKey } });
@@ -417,6 +442,7 @@ const createOrder = async (req, res) => {
           appliedRules: pricing.appliedRules,
           idempotencyKey: idempotencyKey || null,
           notes: notesClean || null,
+          addressSnapshot,
           heldAt: hold ? new Date() : null,
           paidAt,
           items: {
@@ -427,6 +453,7 @@ const createOrder = async (req, res) => {
               quantity: line.quantity,
               optionsJson: line.options,
               subtotalCents: line.subtotalCents,
+              lineNote: line.lineNote || null,
             })),
           },
         },

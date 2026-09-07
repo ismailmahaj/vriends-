@@ -1,11 +1,18 @@
 const express = require('express');
 const router = express.Router();
-const { createOrder, getMyOrders, getAllOrders, updateStatus } = require('../controllers/ordersController');
+const {
+  createOrder,
+  getMyOrders,
+  getAllOrders,
+  updateStatus,
+  updateOrderAddress,
+} = require('../controllers/ordersController');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 
 router.post('/', authMiddleware, createOrder);
 router.get('/me', authMiddleware, getMyOrders);
 router.get('/', authMiddleware, adminMiddleware, getAllOrders);
 router.patch('/:id/status', authMiddleware, adminMiddleware, updateStatus);
+router.patch('/:id/address', authMiddleware, adminMiddleware, updateOrderAddress);
 
 module.exports = router;

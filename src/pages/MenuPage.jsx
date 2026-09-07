@@ -3,8 +3,10 @@ import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext';
 import { getProducts } from '../services/productsService';
 import { getCategories } from '../services/categoriesService';
+import { getOrdersStatus } from '../services/shopSettingsService';
 import { useLanguage } from '../context/LanguageContext';
 import ProductOptionsModal from '../components/ProductOptionsModal';
+import ImageLightbox from '../components/ImageLightbox';
 import { normalizeOptionsSchema } from '../lib/optionsEngine';
 
 const MenuPage = () => {
@@ -15,6 +17,8 @@ const MenuPage = () => {
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
   const [optionsProduct, setOptionsProduct] = useState(null);
+  const [lightbox, setLightbox] = useState(null);
+  const [ordersStatus, setOrdersStatus] = useState({ accepting: true, message: '' });
   const [isMobile, setIsMobile] = useState(() =>
     typeof window !== 'undefined' ? window.innerWidth <= 768 : false
   );
@@ -29,6 +33,9 @@ const MenuPage = () => {
 
   useEffect(() => {
     loadCatalog();
+    getOrdersStatus()
+      .then(setOrdersStatus)
+      .catch(() => {});
   }, []);
 
   const loadCatalog = async () => {
@@ -86,6 +93,16 @@ const MenuPage = () => {
       fontSize: '1rem',
       color: '#1C1C1C',
       opacity: 0.7,
+    },
+    banner: {
+      background: '#fdf0ee',
+      border: '1px solid #e74c3c',
+      color: '#c0392b',
+      padding: '1rem 1.25rem',
+      marginBottom: '1.5rem',
+      fontFamily: "'DM Sans', sans-serif",
+      fontSize: '0.95rem',
+      textAlign: 'center',
     },
     catsWrap: {
       display: 'flex',
@@ -189,6 +206,12 @@ const MenuPage = () => {
           <p style={styles.subtitle}>{t('menuSubtitle')}</p>
         </div>
 
+        {!ordersStatus.accepting && (
+          <div style={styles.banner} role="alert">
+            {ordersStatus.message || t('ordersClosedDefault')}
+          </div>
+        )}
+
         <div style={styles.catsWrap}>
           <button type="button" style={styles.catBtn(activeCategory === 'ALL')} onClick={() => setActiveCategory('ALL')}>
             {t('posAllCategories') || 'Tous'}
@@ -223,13 +246,32 @@ const MenuPage = () => {
                 }}
               >
                 {product.imageUrl ? (
-                  <img
-                    src={product.imageUrl}
-                    alt=""
-                    style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 4, marginBottom: '1rem' }}
-                  />
+                  <button
+                    type="button"
+                    onClick={() => setLightbox({ src: product.imageUrl, alt: product.name })}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      padding: 0,
+                      border: 'none',
+                      background: 'transparent',
+                      cursor: 'zoom-in',
+                      marginBottom: '1rem',
+                    }}
+                    aria-label={`${t('enlargePhoto')} — ${product.name}`}
+                  >
+                    <img
+                      src={product.imageUrl}
+                      alt={product.name}
+                      loading="lazy"
+                      decoding="async"
+                      style={{ width: '100%', height: 140, objectFit: 'cover', borderRadius: 4, display: 'block' }}
+                    />
+                  </button>
                 ) : (
-                  <div style={{ fontSize: '2.2rem', marginBottom: '0.75rem' }}>✨</div>
+                  <div style={{ fontSize: '2.2rem', marginBottom: '0.75rem' }} aria-hidden>
+                    ✨
+                  </div>
                 )}
                 <div style={styles.name}>{product.name}</div>
                 <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.78rem', opacity: 0.6, marginBottom: '0.45rem' }}>
@@ -274,6 +316,9 @@ const MenuPage = () => {
             setTimeout(() => setToast(null), 2000);
           }}
         />
+      )}
+      {lightbox && (
+        <ImageLightbox src={lightbox.src} alt={lightbox.alt} onClose={() => setLightbox(null)} />
       )}
       {toast && <div style={styles.toast}>{toast}</div>}
     </div>

@@ -88,15 +88,7 @@ const login = async (req, res) => {
 
     res.json({
       token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone || null,
-        role: user.role,
-        local_status: user.localStatus,
-        discount_percent: user.discountPercent,
-      },
+      user: mapPublicUser(user),
     });
   } catch (error) {
     console.error('❌ Erreur login:', error);
@@ -109,11 +101,63 @@ const mapPublicUser = (user) => ({
   name: user.name,
   email: user.email,
   phone: user.phone || null,
+  first_name: user.firstName || null,
+  last_name: user.lastName || null,
+  street: user.street || null,
+  house_number: user.houseNumber || null,
+  box: user.box || null,
+  postal_code: user.postalCode || null,
+  city: user.city || null,
+  country: user.country || null,
+  delivery_instructions: user.deliveryInstructions || null,
+  internal_notes: user.internalNotes || null,
   role: user.role,
   local_status: user.localStatus,
   discount_percent: user.discountPercent,
   created_at: user.createdAt,
 });
+
+const updateMyProfile = async (req, res) => {
+  try {
+    const body = req.body || {};
+    const data = {};
+    if (body.name != null) data.name = String(body.name).trim();
+    if (body.phone != null) data.phone = String(body.phone).trim() || null;
+    if (body.firstName != null || body.first_name != null) {
+      data.firstName = String(body.firstName ?? body.first_name).trim() || null;
+    }
+    if (body.lastName != null || body.last_name != null) {
+      data.lastName = String(body.lastName ?? body.last_name).trim() || null;
+    }
+    if (body.street != null) data.street = String(body.street).trim() || null;
+    if (body.houseNumber != null || body.house_number != null) {
+      data.houseNumber = String(body.houseNumber ?? body.house_number).trim() || null;
+    }
+    if (body.box != null) data.box = String(body.box).trim() || null;
+    if (body.postalCode != null || body.postal_code != null) {
+      data.postalCode = String(body.postalCode ?? body.postal_code).trim() || null;
+    }
+    if (body.city != null) data.city = String(body.city).trim() || null;
+    if (body.country != null) data.country = String(body.country).trim() || 'Belgique';
+    if (body.deliveryInstructions != null || body.delivery_instructions != null) {
+      data.deliveryInstructions =
+        String(body.deliveryInstructions ?? body.delivery_instructions).trim() || null;
+    }
+
+    if (data.postalCode && !/^\d{4}$/.test(data.postalCode)) {
+      return res.status(400).json({ error: 'Code postal belge invalide (4 chiffres)' });
+    }
+
+    const user = await prisma.user.update({
+      where: { id: req.user.id },
+      data,
+    });
+    res.json({ success: true, user: mapPublicUser(user) });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+};
 
 const getUsers = async (req, res) => {
   try {
@@ -123,6 +167,16 @@ const getUsers = async (req, res) => {
         name: true,
         email: true,
         phone: true,
+        firstName: true,
+        lastName: true,
+        street: true,
+        houseNumber: true,
+        box: true,
+        postalCode: true,
+        city: true,
+        country: true,
+        deliveryInstructions: true,
+        internalNotes: true,
         role: true,
         localStatus: true,
         discountPercent: true,
@@ -262,6 +316,166 @@ const exportUsersCSV = async (req, res) => {
   }
 };
 
+const getCustomerDetail = async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID invalide' });
+
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        firstName: true,
+        lastName: true,
+        street: true,
+        houseNumber: true,
+        box: true,
+        postalCode: true,
+        city: true,
+        country: true,
+        deliveryInstructions: true,
+        internalNotes: true,
+        role: true,
+        localStatus: true,
+        discountPercent: true,
+        createdAt: true,
+      },
+    });
+    if (!user) return res.status(404).json({ error: 'Client introuvable' });
+
+    const orders = await prisma.order.findMany({
+      where: { userId: id },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        totalPrice: true,
+        status: true,
+        pickupTime: true,
+        createdAt: true,
+        addressSnapshot: true,
+        notes: true,
+      },
+      take: 50,
+    });
+
+    const orderCount = await prisma.order.count({ where: { userId: id } });
+    const agg = await prisma.order.aggregate({
+      where: {
+        userId: id,
+        status: { notIn: ['cancelled'] },
+      },
+      _sum: { totalPrice: true },
+    });
+
+    res.json({
+      ...mapPublicUser(user),
+      stats: {
+        order_count: orderCount,
+        total_spent: Math.round((agg._sum.totalPrice || 0) * 100) / 100,
+        last_order_at: orders[0]?.createdAt || null,
+      },
+      orders: orders.map((o) => ({
+        id: o.id,
+        total_price: o.totalPrice,
+        status: o.status,
+        pickup_time: o.pickupTime,
+        created_at: o.createdAt,
+        address_snapshot: o.addressSnapshot,
+        notes: o.notes,
+      })),
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+};
+
+const updateCustomerAdmin = async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'ID invalide' });
+
+    const existing = await prisma.user.findUnique({ where: { id } });
+    if (!existing) return res.status(404).json({ error: 'Client introuvable' });
+
+    const body = req.body || {};
+    const data = {};
+    if (body.phone != null) data.phone = String(body.phone).trim() || null;
+    if (body.firstName != null || body.first_name != null) {
+      data.firstName = String(body.firstName ?? body.first_name).trim() || null;
+    }
+    if (body.lastName != null || body.last_name != null) {
+      data.lastName = String(body.lastName ?? body.last_name).trim() || null;
+    }
+    if (body.street != null) data.street = String(body.street).trim() || null;
+    if (body.houseNumber != null || body.house_number != null) {
+      data.houseNumber = String(body.houseNumber ?? body.house_number).trim() || null;
+    }
+    if (body.box != null) data.box = String(body.box).trim() || null;
+    if (body.postalCode != null || body.postal_code != null) {
+      data.postalCode = String(body.postalCode ?? body.postal_code).trim() || null;
+    }
+    if (body.city != null) data.city = String(body.city).trim() || null;
+    if (body.country != null) data.country = String(body.country).trim() || 'Belgique';
+    if (body.deliveryInstructions != null || body.delivery_instructions != null) {
+      data.deliveryInstructions =
+        String(body.deliveryInstructions ?? body.delivery_instructions).trim() || null;
+    }
+    if (body.internalNotes != null || body.internal_notes != null) {
+      data.internalNotes = String(body.internalNotes ?? body.internal_notes)
+        .replace(/[<>]/g, '')
+        .trim()
+        .slice(0, 2000) || null;
+    }
+
+    if (data.postalCode && !/^\d{4}$/.test(data.postalCode)) {
+      return res.status(400).json({ error: 'Code postal belge invalide (4 chiffres)' });
+    }
+
+    const oldAddress = {
+      street: existing.street,
+      houseNumber: existing.houseNumber,
+      box: existing.box,
+      postalCode: existing.postalCode,
+      city: existing.city,
+      country: existing.country,
+      deliveryInstructions: existing.deliveryInstructions,
+    };
+
+    const user = await prisma.user.update({ where: { id }, data });
+
+    const addressChanged = [
+      'street',
+      'houseNumber',
+      'box',
+      'postalCode',
+      'city',
+      'country',
+      'deliveryInstructions',
+    ].some((k) => data[k] !== undefined);
+
+    if (addressChanged) {
+      const { buildAddressSnapshot } = require('../lib/shopSettings');
+      await prisma.addressAudit.create({
+        data: {
+          userId: id,
+          actorId: req.user.id,
+          oldAddress,
+          newAddress: buildAddressSnapshot(user),
+        },
+      });
+    }
+
+    res.json({ success: true, user: mapPublicUser(user) });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -269,4 +483,7 @@ module.exports = {
   exportUsersCSV,
   searchCustomers,
   createCustomer,
+  updateMyProfile,
+  getCustomerDetail,
+  updateCustomerAdmin,
 };

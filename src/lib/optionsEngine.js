@@ -59,13 +59,21 @@ function normalizeGroup(raw, index = 0) {
 
   const required = raw.required == null ? selection === 'single' : !!raw.required;
   let min = asNumber(raw.min, required ? 1 : 0);
-  let max = asNumber(raw.max, selection === 'single' ? 1 : uniqueChoices.length);
+  const maxRaw = raw.max;
+  const unlimited =
+    selection === 'multiple' &&
+    (maxRaw === null || maxRaw === undefined || maxRaw === '' || String(maxRaw).toLowerCase() === 'null');
+  let max = unlimited
+    ? null
+    : asNumber(maxRaw, selection === 'single' ? 1 : uniqueChoices.length);
   if (selection === 'single') {
     max = 1;
     if (required) min = Math.max(min, 1);
   }
   min = Math.max(0, Math.min(min, uniqueChoices.length));
-  max = Math.max(min, Math.min(max, uniqueChoices.length));
+  if (max != null) {
+    max = Math.max(min, Math.min(max, uniqueChoices.length));
+  }
 
   const id = String(raw.id || slugify(name) || `g${index}`).trim();
   return {
@@ -138,8 +146,12 @@ export function validateSelection(schema, selection) {
     if (filtered.length < group.min) {
       errors.push({ groupId: group.id, message: `« ${group.name} » : minimum ${group.min} choix` });
     }
-    if (filtered.length > group.max) {
-      errors.push({ groupId: group.id, message: `« ${group.name} » : maximum ${group.max} choix` });
+    if (filtered.length > group.max && group.max != null) {
+      errors.push({
+        groupId: group.id,
+        message: `« ${group.name} » : maximum ${group.max} choix`,
+        code: 'MAX',
+      });
     }
     if (group.required && filtered.length === 0) {
       errors.push({ groupId: group.id, message: `« ${group.name} » est obligatoire` });

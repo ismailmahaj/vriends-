@@ -1,42 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { orderService } from '../services/order.service';
 import { authService } from '../services/auth.service';
 import type { User } from '../services/auth.service';
 import './Cart.css';
 
+type CartProduct = { id: number; name: string; price: number };
+type CartLine = { product: CartProduct; quantity: number };
+type ApiError = { response?: { data?: { error?: string } } };
+
 export default function Cart() {
-  const [cart, setCart] = useState<Array<{ product: any; quantity: number }>>([]);
+  const [cart, setCart] = useState<CartLine[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [pickupTime, setPickupTime] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
-  useEffect(() => {
-    loadCart();
-    loadUser();
-    generatePickupTimes();
-  }, []);
-
-  const loadCart = () => {
-    const savedCart = localStorage.getItem('cart');
-    if (savedCart) {
-      setCart(JSON.parse(savedCart));
-    }
-  };
-
-  const loadUser = async () => {
-    try {
-      const profile = await authService.getProfile();
-      setUser(profile);
-    } catch (error) {
-      console.error('Erreur chargement profil:', error);
-    }
-  };
-
-  const generatePickupTimes = () => {
-    const times = [];
+  const generatePickupTimes = useCallback(() => {
+    const times: string[] = [];
     const now = new Date();
     now.setHours(now.getHours() + 1);
     now.setMinutes(0);
@@ -44,26 +26,39 @@ export default function Cart() {
     for (let i = 0; i < 12; i++) {
       const time = new Date(now);
       time.setHours(time.getHours() + i);
-      const timeStr = time.toLocaleTimeString('fr-FR', {
-        hour: '2-digit',
-        minute: '2-digit',
-      });
-      times.push(timeStr);
+      times.push(
+        time.toLocaleTimeString('fr-FR', {
+          hour: '2-digit',
+          minute: '2-digit',
+        })
+      );
     }
-    if (!pickupTime && times.length > 0) {
-      setPickupTime(times[0]);
+    setPickupTime((prev) => prev || times[0] || '');
+  }, []);
+
+  useEffect(() => {
+    const savedCart = localStorage.getItem('cart');
+    if (savedCart) {
+      setCart(JSON.parse(savedCart) as CartLine[]);
     }
-  };
+    authService
+      .getProfile()
+      .then(setUser)
+      .catch(() => {});
+    generatePickupTimes();
+  }, [generatePickupTimes]);
 
   const updateQuantity = (productId: number, delta: number) => {
-    const updatedCart = cart.map((item) => {
-      if (item.product.id === productId) {
-        const newQuantity = item.quantity + delta;
-        if (newQuantity <= 0) return null;
-        return { ...item, quantity: newQuantity };
-      }
-      return item;
-    }).filter(Boolean) as Array<{ product: any; quantity: number }>;
+    const updatedCart = cart
+      .map((item) => {
+        if (item.product.id === productId) {
+          const newQuantity = item.quantity + delta;
+          if (newQuantity <= 0) return null;
+          return { ...item, quantity: newQuantity };
+        }
+        return item;
+      })
+      .filter((item): item is CartLine => item != null);
 
     setCart(updatedCart);
     localStorage.setItem('cart', JSON.stringify(updatedCart));
@@ -106,8 +101,9 @@ export default function Cart() {
       await orderService.createOrder(items, pickupTime);
       localStorage.removeItem('cart');
       navigate('/profile');
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Erreur lors de la commande');
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      setError(apiErr.response?.data?.error || 'Erreur lors de la commande');
     } finally {
       setLoading(false);
     }

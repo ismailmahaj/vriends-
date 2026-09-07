@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom';
-import { authService } from '../services/auth.service';
+import { authService, type User } from '../services/auth.service';
 import './Navbar.css';
 
 interface NavbarProps {
-  user: any;
-  setUser: (user: any) => void;
+  user: User | null;
+  setUser: (user: User | null) => void;
 }
 
 export default function Navbar({ user, setUser }: NavbarProps) {

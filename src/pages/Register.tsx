@@ -1,11 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authService } from '../services/auth.service';
+import { authService, type User } from '../services/auth.service';
 import './Auth.css';
 
 interface RegisterProps {
-  setUser: (user: any) => void;
+  setUser: (user: User) => void;
 }
+
+type ApiError = {
+  response?: { data?: { error?: string } };
+};
 
 export default function Register({ setUser }: RegisterProps) {
   const [name, setName] = useState('');
@@ -24,8 +28,9 @@ export default function Register({ setUser }: RegisterProps) {
       const response = await authService.register(name, email, password);
       setUser(response.user);
       navigate('/');
-    } catch (err: any) {
-      setError(err.response?.data?.error || "Erreur d'inscription");
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      setError(apiErr.response?.data?.error || "Erreur d'inscription");
     } finally {
       setLoading(false);
     }

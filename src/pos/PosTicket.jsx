@@ -63,11 +63,46 @@ const PosTicket = ({ order, settings }) => {
           </div>
           {item.options ? (
             <div style={{ fontSize: 11, opacity: 0.8 }}>
-              {typeof item.options === 'string' ? item.options : JSON.stringify(item.options)}
+              {typeof item.options === 'string'
+                ? item.options
+                : Array.isArray(item.options)
+                  ? item.options.map((o) => o.label || o.name).filter(Boolean).join(', ')
+                  : JSON.stringify(item.options)}
+            </div>
+          ) : null}
+          {item.lineNote ? (
+            <div style={{ fontSize: 11, fontStyle: 'italic', opacity: 0.85 }}>
+              → {item.lineNote}
             </div>
           ) : null}
         </div>
       ))}
+      {order.notes ? (
+        <>
+          <div className="line" />
+          <div style={{ fontSize: 11 }}>{order.notes}</div>
+        </>
+      ) : null}
+      {order.addressSnapshot || order.customerName ? (
+        <>
+          <div className="line" />
+          {order.customerName ? <div>{order.customerName}</div> : null}
+          {order.customerPhone ? <div>{order.customerPhone}</div> : null}
+          {order.addressSnapshot ? (
+            <div style={{ fontSize: 11 }}>
+              {[
+                order.addressSnapshot.street,
+                order.addressSnapshot.houseNumber,
+                order.addressSnapshot.box ? `bte ${order.addressSnapshot.box}` : null,
+                order.addressSnapshot.postalCode,
+                order.addressSnapshot.city,
+              ]
+                .filter(Boolean)
+                .join(' ')}
+            </div>
+          ) : null}
+        </>
+      ) : null}
       <div className="line" />
       <div className="row">
         <span>{t('posSubtotal')}</span>

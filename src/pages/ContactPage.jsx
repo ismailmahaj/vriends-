@@ -452,10 +452,6 @@ const ContactPage = () => {
               <div>{t('address')}</div>
             </div>
             <div style={styles.infoItem}>
-              <div style={styles.infoIcon}>⏰</div>
-              <div>{t('hours')}</div>
-            </div>
-            <div style={styles.infoItem}>
               <div style={styles.infoIcon}>✉️</div>
               <div>{t('emailContact')}</div>
             </div>

@@ -1,5 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -8,11 +8,29 @@ import Cart from './pages/Cart';
 import Profile from './pages/Profile';
 import Dashboard from './pages/Dashboard';
 import Navbar from './components/Navbar';
-import { authService } from './services/auth.service';
+import { authService, type User } from './services/auth.service';
 import './App.css';
 
+function ProtectedRoute({
+  children,
+  user,
+  requireAdmin = false,
+}: {
+  children: ReactNode;
+  user: User | null;
+  requireAdmin?: boolean;
+}) {
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+  if (requireAdmin && user.role !== 'admin') {
+    return <Navigate to="/" />;
+  }
+  return <>{children}</>;
+}
+
 function App() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -21,7 +39,7 @@ function App() {
         try {
           const profile = await authService.getProfile();
           setUser(profile);
-        } catch (error) {
+        } catch {
           authService.logout();
         }
       }
@@ -29,16 +47,6 @@ function App() {
     };
     loadUser();
   }, []);
-
-  const ProtectedRoute = ({ children, requireAdmin = false }: { children: React.ReactNode; requireAdmin?: boolean }) => {
-    if (!user) {
-      return <Navigate to="/login" />;
-    }
-    if (requireAdmin && user.role !== 'admin') {
-      return <Navigate to="/" />;
-    }
-    return <>{children}</>;
-  };
 
   if (loading) {
     return <div style={{ padding: '2rem', textAlign: 'center' }}>Chargement...</div>;
@@ -61,7 +69,7 @@ function App() {
         <Route
           path="/cart"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute user={user}>
               <Cart />
             </ProtectedRoute>
           }
@@ -69,7 +77,7 @@ function App() {
         <Route
           path="/profile"
           element={
-            <ProtectedRoute>
+            <ProtectedRoute user={user}>
               <Profile user={user} />
             </ProtectedRoute>
           }
@@ -77,7 +85,7 @@ function App() {
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute requireAdmin>
+            <ProtectedRoute user={user} requireAdmin>
               <Dashboard />
             </ProtectedRoute>
           }

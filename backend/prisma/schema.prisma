@@ -8,18 +8,28 @@ datasource db {
 }
 
 model User {
-  id              Int        @id @default(autoincrement())
-  name            String
-  email           String     @unique
-  password        String
-  role            String     @default("client")
-  phone           String?
-  localStatus     Boolean    @default(false) @map("local_status")
-  discountPercent Int        @default(0) @map("discount_percent")
-  createdAt       DateTime   @default(now()) @map("created_at")
-  orders          Order[]
-  posOrders       PosOrder[] @relation("CashierOrders")
-  customerPosOrders PosOrder[] @relation("CustomerPosOrders")
+  id                   Int        @id @default(autoincrement())
+  name                 String
+  email                String     @unique
+  password             String
+  role                 String     @default("client")
+  phone                String?
+  firstName            String?    @map("first_name")
+  lastName             String?    @map("last_name")
+  street               String?
+  houseNumber          String?    @map("house_number")
+  box                  String?
+  postalCode           String?    @map("postal_code")
+  city                 String?
+  country              String?    @default("Belgique")
+  deliveryInstructions String?    @map("delivery_instructions")
+  internalNotes        String?    @map("internal_notes")
+  localStatus          Boolean    @default(false) @map("local_status")
+  discountPercent      Int        @default(0) @map("discount_percent")
+  createdAt            DateTime   @default(now()) @map("created_at")
+  orders               Order[]
+  posOrders            PosOrder[] @relation("CashierOrders")
+  customerPosOrders    PosOrder[] @relation("CustomerPosOrders")
 
   @@index([phone])
   @@index([name])
@@ -58,31 +68,36 @@ model Product {
 }
 
 model Order {
-  id         Int         @id @default(autoincrement())
-  userId     Int         @map("user_id")
-  totalPrice Float       @map("total_price")
-  pickupTime String      @map("pickup_time")
-  status     String      @default("pending")
-  notes      String?
-  createdAt  DateTime    @default(now()) @map("created_at")
-  user       User        @relation(fields: [userId], references: [id])
-  items      OrderItem[]
+  id              Int         @id @default(autoincrement())
+  userId          Int         @map("user_id")
+  totalPrice      Float       @map("total_price")
+  pickupTime      String      @map("pickup_time")
+  status          String      @default("pending")
+  notes           String?
+  orderType       String      @default("TAKEAWAY") @map("order_type")
+  addressSnapshot Json?       @map("address_snapshot")
+  cgvAcceptedAt   DateTime?   @map("cgv_accepted_at")
+  cgvVersion      String?     @map("cgv_version")
+  createdAt       DateTime    @default(now()) @map("created_at")
+  user            User        @relation(fields: [userId], references: [id])
+  items           OrderItem[]
 
   @@map("orders")
 }
 
 model OrderItem {
-  id                   Int     @id @default(autoincrement())
-  orderId              Int     @map("order_id")
-  productId            Int     @map("product_id")
-  quantity             Int
-  price                Float
-  productNameSnapshot  String? @map("product_name_snapshot")
-  optionsJson          Json?   @map("options_json")
-  basePrice            Float?  @map("base_price")
-  optionsExtra         Float   @default(0) @map("options_extra")
-  order                Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product              Product @relation(fields: [productId], references: [id])
+  id                  Int     @id @default(autoincrement())
+  orderId             Int     @map("order_id")
+  productId           Int     @map("product_id")
+  quantity            Int
+  price               Float
+  productNameSnapshot String? @map("product_name_snapshot")
+  optionsJson         Json?   @map("options_json")
+  basePrice           Float?  @map("base_price")
+  optionsExtra        Float   @default(0) @map("options_extra")
+  lineNote            String? @map("line_note")
+  order               Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product             Product @relation(fields: [productId], references: [id])
 
   @@map("order_items")
 }
@@ -118,6 +133,32 @@ model Setting {
   @@map("settings")
 }
 
+model EmailLog {
+  id        Int      @id @default(autoincrement())
+  toEmail   String   @map("to_email")
+  subject   String
+  template  String?
+  orderId   Int?     @map("order_id")
+  status    String   @default("pending")
+  error     String?
+  payload   Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("email_logs")
+}
+
+model AddressAudit {
+  id         Int      @id @default(autoincrement())
+  userId     Int?     @map("user_id")
+  orderId    Int?     @map("order_id")
+  actorId    Int?     @map("actor_id")
+  oldAddress Json?    @map("old_address")
+  newAddress Json?    @map("new_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("address_audits")
+}
+
 model PosOrder {
   id                     Int            @id @default(autoincrement())
   orderNumber            String         @unique @map("order_number")
@@ -140,6 +181,7 @@ model PosOrder {
   taxCents               Int            @default(0) @map("tax_cents")
   idempotencyKey         String?        @unique @map("idempotency_key")
   notes                  String?
+  addressSnapshot        Json?          @map("address_snapshot")
   heldAt                 DateTime?      @map("held_at")
   paidAt                 DateTime?      @map("paid_at")
   createdAt              DateTime       @default(now()) @map("created_at")
@@ -165,6 +207,7 @@ model PosOrderItem {
   quantity            Int
   optionsJson         Json?    @map("options_json")
   subtotalCents       Int      @map("subtotal_cents")
+  lineNote            String?  @map("line_note")
   order               PosOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product             Product? @relation(fields: [productId], references: [id])
 

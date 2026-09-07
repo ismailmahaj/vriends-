@@ -1,11 +1,15 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authService } from '../services/auth.service';
+import { authService, type User } from '../services/auth.service';
 import './Auth.css';
 
 interface LoginProps {
-  setUser: (user: any) => void;
+  setUser: (user: User) => void;
 }
+
+type ApiError = {
+  response?: { data?: { error?: string } };
+};
 
 export default function Login({ setUser }: LoginProps) {
   const [email, setEmail] = useState('');
@@ -23,8 +27,9 @@ export default function Login({ setUser }: LoginProps) {
       const response = await authService.login(email, password);
       setUser(response.user);
       navigate('/');
-    } catch (err: any) {
-      setError(err.response?.data?.error || 'Erreur de connexion');
+    } catch (err: unknown) {
+      const apiErr = err as ApiError;
+      setError(apiErr.response?.data?.error || 'Erreur de connexion');
     } finally {
       setLoading(false);
     }

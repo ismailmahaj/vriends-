@@ -382,16 +382,6 @@ const HomePage = () => {
           <div style={styles.quote}>
             {t('quote')}
           </div>
-          <div style={styles.hours}>
-            <div style={styles.hoursItem}>
-              <div>{t('hoursWeek')}</div>
-              <div style={{ marginTop: '0.3rem' }}>{t('hoursWeekTime')}</div>
-            </div>
-            <div style={styles.hoursItem}>
-              <div>{t('hoursWeekend')}</div>
-              <div style={{ marginTop: '0.3rem' }}>{t('hoursWeekendTime')}</div>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -476,6 +466,8 @@ const HomePage = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             <Link to="/menu" style={{ color: 'rgba(247,245,242,.6)', textDecoration: 'none' }}>{t('menu')}</Link>
             <Link to="/contact" style={{ color: 'rgba(247,245,242,.6)', textDecoration: 'none' }}>{t('contact')}</Link>
+            <Link to="/terms" style={{ color: 'rgba(247,245,242,.6)', textDecoration: 'none' }}>{t('termsTitle')}</Link>
+            <Link to="/privacy" style={{ color: 'rgba(247,245,242,.6)', textDecoration: 'none' }}>{t('privacyTitle')}</Link>
           </div>
         </div>
         <div style={styles.footerSection}>
