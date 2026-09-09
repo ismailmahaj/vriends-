@@ -17,7 +17,7 @@ const DEFAULTS = {
   pos_auto_print: 'false',
   pos_auto_print_trigger: 'paid',
   pos_auto_print_copies: '1',
-  pos_ticket_width_mm: '80',
+  pos_ticket_width_mm: '58',
   cgv_version: '1.0',
 };
 
@@ -90,6 +90,50 @@ function sanitizeLineNote(note) {
   return cleaned || null;
 }
 
+/** Corrige les groupes « groeten/groenten » limités à tort (max 2 → illimité). */
+async function repairUnlimitedVegetableOptions() {
+  const { normalizeOptionsSchema } = require('./optionsEngine.cjs');
+  const products = await prisma.product.findMany({
+    where: { optionsSchema: { not: null }, deletedAt: null },
+    select: { id: true, optionsSchema: true },
+  });
+  let fixed = 0;
+  for (const product of products) {
+    let parsed;
+    try {
+      parsed =
+        typeof product.optionsSchema === 'string'
+          ? JSON.parse(product.optionsSchema)
+          : product.optionsSchema;
+    } catch {
+      continue;
+    }
+    if (!Array.isArray(parsed)) continue;
+    let changed = false;
+    const next = parsed.map((group) => {
+      const name = String(group?.name || group?.label || '').toLowerCase();
+      const isMulti =
+        group?.selection === 'multiple' || group?.type === 'multiple' || group?.multi;
+      if (isMulti && /groet/.test(name) && group.max != null && group.max !== '') {
+        changed = true;
+        return { ...group, max: null };
+      }
+      return group;
+    });
+    if (!changed) continue;
+    const normalized = normalizeOptionsSchema(next);
+    await prisma.product.update({
+      where: { id: product.id },
+      data: { optionsSchema: JSON.stringify(normalized) },
+    });
+    fixed += 1;
+  }
+  if (fixed > 0) {
+    console.log(`[shopSettings] options groeten illimitées corrigées: ${fixed} produit(s)`);
+  }
+  return fixed;
+}
+
 function buildAddressSnapshot(userOrAddress) {
   if (!userOrAddress) return null;
   const src = userOrAddress;
@@ -138,4 +182,5 @@ module.exports = {
   sanitizeLineNote,
   buildAddressSnapshot,
   formatAddress,
+  repairUnlimitedVegetableOptions,
 };

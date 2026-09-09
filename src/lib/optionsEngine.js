@@ -255,7 +255,11 @@ export function editorRowsToSchema(rows) {
       selection: row.selection === 'multiple' ? 'multiple' : 'single',
       required: !!row.required,
       min: row.min,
-      max: row.max,
+      // '' / undefined / null => illimité pour multiple
+      max:
+        row.max === '' || row.max === undefined || row.max === null
+          ? null
+          : row.max,
       choices: parseChoicesText(row.choicesText),
     }))
   );

@@ -851,7 +851,7 @@
   background: rgba(230, 220, 203, 0.4);
 }
 
-/* Ticket thermique — masqué à l'écran */
+/* Ticket thermique — masqué à l'écran, visible uniquement à l'impression */
 .pos-ticket {
   display: none;
 }
@@ -861,6 +861,23 @@
 }
 
 @media print {
+  @page {
+    margin: 0;
+    size: 58mm auto;
+  }
+
+  html,
+  body {
+    width: 58mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  body.ticket-width-80 {
+    width: 80mm !important;
+  }
+
   body * {
     visibility: hidden !important;
   }
@@ -877,6 +894,11 @@
     position: absolute;
     left: 0;
     top: 0;
+    width: 58mm;
+  }
+
+  body.ticket-width-80 .pos-ticket-print-stack {
+    width: 80mm;
   }
 
   .pos-ticket {
@@ -884,70 +906,39 @@
     position: relative;
     left: 0;
     top: 0;
-    width: 80mm;
-    max-width: 80mm;
-    padding: 3mm 2mm;
-    margin: 0;
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 11px;
-    line-height: 1.25;
-    color: #000;
-    background: #fff;
-    overflow: hidden;
-    word-wrap: break-word;
-    overflow-wrap: anywhere;
-    white-space: normal;
-  }
-
-  body.ticket-width-58 .pos-ticket,
-  body.ticket-width-58 .pos-ticket-print-stack .pos-ticket {
-    width: 54mm;
-    max-width: 54mm;
-    padding: 2mm 1.5mm;
-    font-size: 10px;
+    box-sizing: border-box;
+    width: 58mm !important;
+    max-width: 58mm !important;
+    margin: 0 !important;
+    padding: 2mm 2mm 4mm !important;
+    background: #fff !important;
+    color: #000 !important;
+    overflow: visible !important;
   }
 
   body.ticket-width-80 .pos-ticket,
-  body.ticket-width-80 .pos-ticket-print-stack .pos-ticket {
-    width: 72mm;
-    max-width: 72mm;
+  .pos-ticket-80 {
+    width: 80mm !important;
+    max-width: 80mm !important;
+  }
+
+  .pos-ticket-pre {
+    margin: 0 !important;
+    padding: 0 !important;
+    font-family: "Courier New", Courier, monospace !important;
+    font-size: 11px !important;
+    line-height: 1.25 !important;
+    white-space: pre !important;
+    color: #000 !important;
+    background: transparent !important;
+    border: none !important;
+    text-align: left !important;
   }
 
   .pos-ticket-page-break {
     break-after: page;
     page-break-after: always;
     height: 0;
-  }
-
-  .pos-ticket .center {
-    text-align: center;
-  }
-
-  .pos-ticket .bold {
-    font-weight: 700;
-  }
-
-  .pos-ticket .line {
-    border-top: 1px dashed #000;
-    margin: 4px 0;
-  }
-
-  .pos-ticket .row {
-    display: flex;
-    justify-content: space-between;
-    gap: 4px;
-    flex-wrap: wrap;
-  }
-
-  .pos-ticket .row span:first-child {
-    flex: 1 1 60%;
-    min-width: 0;
-    word-break: break-word;
-  }
-
-  @page {
-    margin: 2mm;
-    size: auto;
   }
 }
 

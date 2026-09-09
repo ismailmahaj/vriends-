@@ -1138,7 +1138,7 @@ const DashboardPage = () => {
                         key={idx}
                         style={{
                           display: 'grid',
-                          gridTemplateColumns: isMobile ? '1fr' : '1fr 1.2fr auto auto auto',
+                          gridTemplateColumns: isMobile ? '1fr' : '1fr 1.2fr auto auto auto auto auto',
                           gap: '0.55rem',
                           marginBottom: '0.55rem',
                           alignItems: 'center',
@@ -1179,7 +1179,8 @@ const DashboardPage = () => {
                               options[idx] = {
                                 ...options[idx],
                                 selection: value,
-                                max: value === 'single' ? 1 : Math.max(options[idx].max || 2, 2),
+                                max: value === 'single' ? 1 : null,
+                                min: value === 'single' ? (options[idx].required ? 1 : 0) : (options[idx].min ?? 0),
                               };
                               return { ...f, options };
                             });
@@ -1189,6 +1190,45 @@ const DashboardPage = () => {
                           <option value="single">{t('posOptionsSingle')}</option>
                           <option value="multiple">{t('posOptionsMulti')}</option>
                         </select>
+                        {opt.selection === 'multiple' && (
+                          <>
+                            <input
+                              type="number"
+                              min={0}
+                              title={t('posOptionMin')}
+                              placeholder={t('posOptionMin')}
+                              value={opt.min ?? 0}
+                              onChange={(e) => {
+                                const value = e.target.value === '' ? 0 : Number(e.target.value);
+                                setProductForm((f) => {
+                                  const options = [...f.options];
+                                  options[idx] = { ...options[idx], min: value };
+                                  return { ...f, options };
+                                });
+                              }}
+                              style={{ width: 64, padding: '0.65rem', border: '1.5px solid rgba(58,46,37,.2)', background: '#F7F5F2', fontFamily: "'DM Sans', sans-serif" }}
+                            />
+                            <input
+                              type="number"
+                              min={0}
+                              title={t('posOptionMaxHint')}
+                              placeholder={t('posOptionMaxUnlimited')}
+                              value={opt.max == null || opt.max === '' ? '' : opt.max}
+                              onChange={(e) => {
+                                const raw = e.target.value;
+                                setProductForm((f) => {
+                                  const options = [...f.options];
+                                  options[idx] = {
+                                    ...options[idx],
+                                    max: raw === '' ? null : Number(raw),
+                                  };
+                                  return { ...f, options };
+                                });
+                              }}
+                              style={{ width: 72, padding: '0.65rem', border: '1.5px solid rgba(58,46,37,.2)', background: '#F7F5F2', fontFamily: "'DM Sans', sans-serif" }}
+                            />
+                          </>
+                        )}
                         <label style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '0.78rem', display: 'flex', gap: 4, alignItems: 'center' }}>
                           <input
                             type="checkbox"
@@ -1197,7 +1237,7 @@ const DashboardPage = () => {
                               const checked = e.target.checked;
                               setProductForm((f) => {
                                 const options = [...f.options];
-                                options[idx] = { ...options[idx], required: checked, min: checked ? 1 : 0 };
+                                options[idx] = { ...options[idx], required: checked, min: checked ? Math.max(1, options[idx].min || 0) : 0 };
                                 return { ...f, options };
                               });
                             }}

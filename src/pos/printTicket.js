@@ -15,7 +15,7 @@ export function clampPrintCopies(value, fallback = 1) {
 export function printPosTicket({
   ticketElementId = 'pos-ticket-print',
   copies = 1,
-  widthMm = 80,
+  widthMm = 58,
   printFn = typeof window !== 'undefined' ? window.print.bind(window) : null,
 } = {}) {
   const ticket = typeof document !== 'undefined' ? document.getElementById(ticketElementId) : null;

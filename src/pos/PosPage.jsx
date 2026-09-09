@@ -264,7 +264,7 @@ function PosShell() {
         || state.settings?.autoPrint === true;
       const trigger = state.settings?.autoPrintTrigger || state.settings?.pos_auto_print_trigger || 'paid';
       const copies = Number(state.settings?.autoPrintCopies || state.settings?.pos_auto_print_copies || 1);
-      const widthMm = Number(state.settings?.ticketWidthMm || state.settings?.pos_ticket_width_mm || 80);
+      const widthMm = Number(state.settings?.ticketWidthMm || state.settings?.pos_ticket_width_mm || 58);
       if (autoPrint && (trigger === 'paid' || trigger === 'created')) {
         setTimeout(() => {
           printPosTicket({ copies, widthMm });
@@ -358,7 +358,7 @@ function PosShell() {
 
   const printTicket = () => {
     const copies = Number(state.settings?.autoPrintCopies || 1);
-    const widthMm = Number(state.settings?.ticketWidthMm || 80);
+    const widthMm = Number(state.settings?.ticketWidthMm || 58);
     printPosTicket({ copies, widthMm });
   };
 

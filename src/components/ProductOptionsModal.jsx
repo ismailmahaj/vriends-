@@ -37,9 +37,12 @@ export default function ProductOptionsModal({ product, onClose, onConfirm, accen
       const exists = current.includes(choiceId);
       let next = exists ? current.filter((id) => id !== choiceId) : [...current, choiceId];
       if (group.max != null && next.length > group.max) {
-        // refuse silent trim — caller shows error via validate; keep at max by not adding
-        if (!exists) return prev;
+        if (!exists) {
+          setError(`« ${group.name} » : maximum ${group.max} choix`);
+          return prev;
+        }
       }
+      setError('');
       return { ...prev, [group.id]: next };
     });
   };

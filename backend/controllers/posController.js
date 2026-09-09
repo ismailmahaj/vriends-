@@ -51,7 +51,7 @@ async function getPosSettingsFromDb() {
     autoPrint: String(map.pos_auto_print || 'false').toLowerCase() === 'true',
     autoPrintTrigger: map.pos_auto_print_trigger || 'paid',
     autoPrintCopies: Number(map.pos_auto_print_copies || 1),
-    ticketWidthMm: Number(map.pos_ticket_width_mm || 80),
+    ticketWidthMm: Number(map.pos_ticket_width_mm || 58),
   };
 }
 

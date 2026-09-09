@@ -296,13 +296,13 @@ function parseChoicesText(text) {
 }
 
 function editorRowsToSchema(rows) {
-  const raw = (rows || []).map((row, i) => ({
+  const raw = (rows || []).map((row) => ({
     id: row.id || undefined,
     name: row.name,
     selection: row.selection === 'multiple' ? 'multiple' : 'single',
     required: !!row.required,
     min: row.min,
-    max: row.max,
+    max: row.max === '' || row.max === undefined || row.max === null ? null : row.max,
     choices: parseChoicesText(row.choicesText),
   }));
   return normalizeOptionsSchema(raw);

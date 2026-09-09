@@ -64,4 +64,8 @@ app.listen(PORT, () => {
   console.log(`🚀 Backend running on http://localhost:${PORT}`);
   console.log('🗄️  Database: PostgreSQL (Prisma)');
   console.log(`📝 JWT_SECRET: ${process.env.JWT_SECRET ? '✅ Défini' : '❌ Non défini'}`);
+  const { ensureDefaultSettings, repairUnlimitedVegetableOptions } = require('./lib/shopSettings');
+  ensureDefaultSettings()
+    .then(() => repairUnlimitedVegetableOptions())
+    .catch((e) => console.warn('[startup] shop settings repair:', e.message));
 });
