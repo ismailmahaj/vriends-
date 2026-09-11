@@ -11,7 +11,7 @@ function lineKey(productId, options) {
 
 const initialState = {
   customerType: CUSTOMER_TYPES.STANDARD,
-  orderType: 'DINE_IN',
+  orderType: 'TAKEAWAY',
   items: [],
   selectedLineKey: null,
   category: 'ALL',
@@ -119,7 +119,7 @@ function reducer(state, action) {
         items: [],
         selectedLineKey: null,
         customerType: CUSTOMER_TYPES.STANDARD,
-        orderType: 'DINE_IN',
+        orderType: 'TAKEAWAY',
         customerUser: null,
         notes: '',
       };
@@ -128,7 +128,7 @@ function reducer(state, action) {
         ...state,
         items: action.payload.items || [],
         customerType: action.payload.customerType || CUSTOMER_TYPES.STANDARD,
-        orderType: action.payload.orderType || 'DINE_IN',
+        orderType: action.payload.orderType || 'TAKEAWAY',
         customerUser: action.payload.customerUser ?? null,
         notes: action.payload.notes || '',
         selectedLineKey: null,
@@ -150,7 +150,7 @@ export function PosProvider({ children }) {
         payload: {
           items: draft.items,
           customerType: draft.customerType || CUSTOMER_TYPES.STANDARD,
-          orderType: draft.orderType || 'DINE_IN',
+          orderType: draft.orderType || 'TAKEAWAY',
         },
       });
     }

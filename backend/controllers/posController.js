@@ -336,7 +336,7 @@ const createOrder = async (req, res) => {
     const {
       items,
       customerType = 'STANDARD',
-      orderType = 'DINE_IN',
+      orderType = 'TAKEAWAY',
       hold = false,
       paymentMethod,
       cashReceivedCents,
