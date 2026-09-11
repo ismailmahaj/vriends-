@@ -4,6 +4,7 @@ import { getPosOrder, getPosOrders, getPosSettings } from '../services/posServic
 import { formatCents } from '../lib/pricingEngine';
 import { useLanguage } from '../context/LanguageContext';
 import PosTicket from './PosTicket';
+import { printPosTicket } from './printTicket';
 import './pos.css';
 
 const localeMap = { fr: 'fr-BE', nl: 'nl-BE', en: 'en-GB' };
@@ -55,6 +56,14 @@ export default function PosOrdersPage() {
     } catch (e) {
       console.error(e);
     }
+  };
+
+  const handlePrint = () => {
+    const widthMm = Number(settings?.ticketWidthMm || settings?.pos_ticket_width_mm || 58);
+    const copies = Number(settings?.autoPrintCopies || settings?.pos_auto_print_copies || 1);
+    requestAnimationFrame(() => {
+      printPosTicket({ copies, widthMm });
+    });
   };
 
   const locale = localeMap[language] || 'fr-BE';
@@ -118,6 +127,7 @@ export default function PosOrdersPage() {
               <div key={it.id} className="pos-total-row">
                 <span>
                   {it.quantity}× {it.productNameSnapshot}
+                  {it.lineNote ? ` — ${it.lineNote}` : ''}
                 </span>
                 <span>{formatCents(it.subtotalCents)}</span>
               </div>
@@ -156,7 +166,7 @@ export default function PosOrdersPage() {
               </p>
             )}
             <div className="pos-modal-actions" style={{ marginTop: '1rem' }}>
-              <button type="button" className="pos-btn pos-btn-secondary" onClick={() => window.print()}>
+              <button type="button" className="pos-btn pos-btn-secondary" onClick={handlePrint}>
                 {t('posPrint')}
               </button>
               <button type="button" className="pos-btn pos-btn-primary" onClick={() => setSelected(null)}>

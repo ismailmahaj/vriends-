@@ -1,4 +1,6 @@
-.pos-root {
+/* Variables partagées caisse + historique (évite modal transparent hors .pos-root) */
+.pos-root,
+.pos-orders-page {
   --pos-bg: #ebe4d6;
   --pos-panel: #f7f5f2;
   --pos-ink: #1c1c1c;
@@ -10,7 +12,9 @@
   --pos-muted: rgba(28, 28, 28, 0.55);
   --pos-radius: 18px;
   --pos-shadow: 0 10px 30px rgba(58, 46, 37, 0.08);
+}
 
+.pos-root {
   position: fixed;
   inset: 0;
   z-index: 200;
@@ -624,25 +628,48 @@
 
 .pos-modal {
   width: min(560px, 100%);
-  background: var(--pos-panel);
+  background: #f7f5f2;
+  background: var(--pos-panel, #f7f5f2);
+  color: var(--pos-ink, #1c1c1c);
   border-radius: 22px;
   padding: 1.5rem;
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.22);
   max-height: 90vh;
   overflow-y: auto;
   animation: posSlideUp 0.22s ease;
+  isolation: isolate;
 }
 
 .pos-modal h3 {
-  font-family: 'Cormorant Garamond', serif;
-  font-size: 2rem;
-  color: var(--pos-brown);
-  margin-bottom: 0.35rem;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--pos-brown, #3a2e25);
+  margin: 0 0 0.35rem;
+  line-height: 1.3;
 }
 
 .pos-modal p.lead {
-  color: var(--pos-muted);
+  color: var(--pos-muted, rgba(28, 28, 28, 0.55));
   margin-bottom: 1.1rem;
+  font-size: 0.92rem;
+  line-height: 1.4;
+}
+
+.pos-modal .pos-total-row {
+  color: var(--pos-muted, rgba(28, 28, 28, 0.55));
+}
+
+.pos-modal .pos-total-final {
+  background: var(--pos-brown, #3a2e25);
+  color: #f7f5f2;
+}
+
+.pos-modal .pos-total-final strong {
+  font-family: 'DM Sans', sans-serif;
+  font-size: 1.35rem;
+  font-weight: 600;
+  font-style: normal;
 }
 
 .pos-pay-methods {
@@ -872,6 +899,11 @@
     margin: 0 !important;
     padding: 0 !important;
     background: #fff !important;
+    color: #000 !important;
+    font-size: 10px !important;
+    font-weight: 400 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   body.ticket-width-80 {
@@ -882,10 +914,20 @@
     visibility: hidden !important;
   }
 
-  .pos-ticket,
-  .pos-ticket *,
-  .pos-ticket-print-stack,
-  .pos-ticket-print-stack * {
+  /* Impression via stack (recommandé) : ticket cloné hors du modal */
+  body.pos-printing-stack .pos-ticket-print-stack,
+  body.pos-printing-stack .pos-ticket-print-stack * {
+    visibility: visible !important;
+  }
+
+  body.pos-printing-stack #pos-ticket-print {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Fallback sans stack */
+  body:not(.pos-printing-stack) .pos-ticket,
+  body:not(.pos-printing-stack) .pos-ticket * {
     visibility: visible !important;
   }
 
@@ -895,6 +937,8 @@
     left: 0;
     top: 0;
     width: 58mm;
+    background: #fff !important;
+    color: #000 !important;
   }
 
   body.ticket-width-80 .pos-ticket-print-stack {
@@ -910,10 +954,11 @@
     width: 58mm !important;
     max-width: 58mm !important;
     margin: 0 !important;
-    padding: 2mm 2mm 4mm !important;
+    padding: 2mm 1.5mm 3mm !important;
     background: #fff !important;
     color: #000 !important;
     overflow: visible !important;
+    font-weight: 400 !important;
   }
 
   body.ticket-width-80 .pos-ticket,
@@ -925,14 +970,22 @@
   .pos-ticket-pre {
     margin: 0 !important;
     padding: 0 !important;
-    font-family: "Courier New", Courier, monospace !important;
-    font-size: 11px !important;
-    line-height: 1.25 !important;
+    font-family: "Courier New", Courier, "Liberation Mono", monospace !important;
+    font-size: 10px !important;
+    font-weight: 400 !important;
+    font-style: normal !important;
+    line-height: 1.2 !important;
+    letter-spacing: 0 !important;
     white-space: pre !important;
     color: #000 !important;
     background: transparent !important;
     border: none !important;
     text-align: left !important;
+    transform: none !important;
+  }
+
+  body.ticket-width-80 .pos-ticket-pre {
+    font-size: 11px !important;
   }
 
   .pos-ticket-page-break {

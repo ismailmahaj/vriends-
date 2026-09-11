@@ -25,10 +25,10 @@ export function printPosTicket({
   }
 
   const n = clampPrintCopies(copies);
-  const width = widthMm === 58 || widthMm === '58' ? 58 : 80;
+  const width = widthMm === 58 || widthMm === '58' || Number(widthMm) === 58 ? 58 : 80;
 
-  document.body.classList.remove('ticket-width-58', 'ticket-width-80');
-  document.body.classList.add(`ticket-width-${width}`);
+  document.body.classList.remove('ticket-width-58', 'ticket-width-80', 'pos-printing-stack');
+  document.body.classList.add(`ticket-width-${width}`, 'pos-printing-stack');
 
   let stack = document.getElementById('pos-ticket-print-stack');
   if (!stack) {
@@ -43,12 +43,17 @@ export function printPosTicket({
     '<div class="pos-ticket-page-break"></div>'
   );
 
+  const cleanup = () => {
+    if (stack) stack.innerHTML = '';
+    document.body.classList.remove('pos-printing-stack', 'ticket-width-58', 'ticket-width-80');
+    window.removeEventListener('afterprint', cleanup);
+  };
+
+  window.addEventListener('afterprint', cleanup);
   printFn();
 
-  // Nettoyage après impression (navigateur peut fermer le dialogue async)
-  setTimeout(() => {
-    if (stack) stack.innerHTML = '';
-  }, 1000);
+  // Filet de sécurité si afterprint n'est pas supporté / tardif
+  setTimeout(cleanup, 8000);
 
   return { ok: true, copies: n, widthMm: width, mode: 'dom-duplicate' };
 }
