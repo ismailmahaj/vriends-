@@ -910,41 +910,59 @@
     width: 80mm !important;
   }
 
-  body * {
-    visibility: hidden !important;
+  /* Masquer toute l'UI ; seuls les clones dans la stack sont imprimés */
+  body.pos-printing-stack #root,
+  body.pos-printing-stack #root * {
+    display: none !important;
   }
 
-  /* Impression via stack (recommandé) : ticket cloné hors du modal */
+  body.pos-printing-stack .pos-ticket-print-stack {
+    display: block !important;
+    position: static !important;
+    left: auto !important;
+    top: auto !important;
+    width: 58mm !important;
+    max-width: 58mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    color: #000 !important;
+    visibility: visible !important;
+  }
+
+  body.ticket-width-80.pos-printing-stack .pos-ticket-print-stack {
+    width: 80mm !important;
+    max-width: 80mm !important;
+  }
+
   body.pos-printing-stack .pos-ticket-print-stack,
   body.pos-printing-stack .pos-ticket-print-stack * {
     visibility: visible !important;
   }
 
+  /* Ticket source (dans le modal) : jamais imprimé quand on utilise la stack */
   body.pos-printing-stack #pos-ticket-print {
     display: none !important;
-    visibility: hidden !important;
   }
 
   /* Fallback sans stack */
+  body:not(.pos-printing-stack) * {
+    visibility: hidden !important;
+  }
+
   body:not(.pos-printing-stack) .pos-ticket,
   body:not(.pos-printing-stack) .pos-ticket * {
     visibility: visible !important;
   }
 
-  .pos-ticket-print-stack {
+  body:not(.pos-printing-stack) .pos-ticket {
     display: block !important;
     position: absolute;
     left: 0;
     top: 0;
-    width: 58mm;
-    background: #fff !important;
-    color: #000 !important;
   }
 
-  body.ticket-width-80 .pos-ticket-print-stack {
-    width: 80mm;
-  }
-
+  .pos-ticket-copy,
   .pos-ticket {
     display: block !important;
     position: relative;
@@ -961,6 +979,7 @@
     font-weight: 400 !important;
   }
 
+  body.ticket-width-80 .pos-ticket-copy,
   body.ticket-width-80 .pos-ticket,
   .pos-ticket-80 {
     width: 80mm !important;

@@ -8,6 +8,15 @@ export function clampPrintCopies(value, fallback = 1) {
   return Math.min(5, Math.max(1, Math.round(n)));
 }
 
+function buildTicketCopy(ticket) {
+  const copy = ticket.cloneNode(true);
+  // Ne jamais garder l'id source : sinon le CSS #pos-ticket-print masque aussi les clones.
+  copy.removeAttribute('id');
+  copy.classList.add('pos-ticket-copy');
+  copy.querySelectorAll('[id]').forEach((el) => el.removeAttribute('id'));
+  return copy;
+}
+
 /**
  * Appelle window.print() après avoir appliqué largeur + copies sur le conteneur ticket.
  * Les copies sont rendues en empilant N fois le HTML du ticket dans #pos-ticket-print-stack.
@@ -38,21 +47,31 @@ export function printPosTicket({
     document.body.appendChild(stack);
   }
 
-  const html = ticket.outerHTML;
-  stack.innerHTML = Array.from({ length: n }, () => html).join(
-    '<div class="pos-ticket-page-break"></div>'
-  );
+  stack.replaceChildren();
+  for (let i = 0; i < n; i += 1) {
+    if (i > 0) {
+      const br = document.createElement('div');
+      br.className = 'pos-ticket-page-break';
+      stack.appendChild(br);
+    }
+    stack.appendChild(buildTicketCopy(ticket));
+  }
 
+  let cleaned = false;
   const cleanup = () => {
-    if (stack) stack.innerHTML = '';
+    if (cleaned) return;
+    cleaned = true;
+    if (stack) stack.replaceChildren();
     document.body.classList.remove('pos-printing-stack', 'ticket-width-58', 'ticket-width-80');
     window.removeEventListener('afterprint', cleanup);
   };
 
   window.addEventListener('afterprint', cleanup);
-  printFn();
+  // Laisser le navigateur peindre la stack avant d'ouvrir le dialogue
+  requestAnimationFrame(() => {
+    printFn();
+  });
 
-  // Filet de sécurité si afterprint n'est pas supporté / tardif
   setTimeout(cleanup, 8000);
 
   return { ok: true, copies: n, widthMm: width, mode: 'dom-duplicate' };
