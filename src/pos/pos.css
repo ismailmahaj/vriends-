@@ -900,8 +900,8 @@
     padding: 0 !important;
     background: #fff !important;
     color: #000 !important;
-    font-size: 10px !important;
-    font-weight: 400 !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
   }
@@ -976,7 +976,7 @@
     background: #fff !important;
     color: #000 !important;
     overflow: visible !important;
-    font-weight: 400 !important;
+    font-weight: 700 !important;
   }
 
   body.ticket-width-80 .pos-ticket-copy,
@@ -990,10 +990,10 @@
     margin: 0 !important;
     padding: 0 !important;
     font-family: "Courier New", Courier, "Liberation Mono", monospace !important;
-    font-size: 10px !important;
-    font-weight: 400 !important;
+    font-size: 15px !important;
+    font-weight: 700 !important;
     font-style: normal !important;
-    line-height: 1.2 !important;
+    line-height: 1.25 !important;
     letter-spacing: 0 !important;
     white-space: pre !important;
     color: #000 !important;
@@ -1001,10 +1001,11 @@
     border: none !important;
     text-align: left !important;
     transform: none !important;
+    -webkit-text-stroke: 0.15px #000;
   }
 
   body.ticket-width-80 .pos-ticket-pre {
-    font-size: 11px !important;
+    font-size: 17px !important;
   }
 
   .pos-ticket-page-break {
