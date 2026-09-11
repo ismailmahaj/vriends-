@@ -72,6 +72,9 @@ function PosShell() {
   const [successOrder, setSuccessOrder] = useState(null);
   const [statsOpen, setStatsOpen] = useState(false);
   const [stats, setStats] = useState(null);
+  const [statsPeriod, setStatsPeriod] = useState('day');
+  const [statsOffset, setStatsOffset] = useState(0);
+  const [statsLoading, setStatsLoading] = useState(false);
   const [optionsProduct, setOptionsProduct] = useState(null);
   const [customerQuery, setCustomerQuery] = useState('');
   const [customerResults, setCustomerResults] = useState([]);
@@ -393,14 +396,23 @@ function PosShell() {
     clearDraftStorage();
   };
 
-  const openStats = async () => {
+  const loadStats = async (period = statsPeriod, offset = statsOffset) => {
+    setStatsLoading(true);
     try {
-      const data = await getPosStats();
+      const data = await getPosStats({ period, offset });
       setStats(data);
+      setStatsPeriod(period);
+      setStatsOffset(offset);
       setStatsOpen(true);
     } catch {
       showToast(t('posStatsForbidden'));
+    } finally {
+      setStatsLoading(false);
     }
+  };
+
+  const openStats = async () => {
+    await loadStats('day', 0);
   };
 
   const printTicket = () => {
@@ -880,9 +892,47 @@ function PosShell() {
       {/* Stats */}
       {statsOpen && stats && (
         <div className="pos-modal-backdrop" onClick={() => setStatsOpen(false)}>
-          <div className="pos-modal" onClick={(e) => e.stopPropagation()}>
-            <h3>{t('posStatsToday')}</h3>
-            <p className="lead">{stats.date}</p>
+          <div className="pos-modal pos-stats-modal" onClick={(e) => e.stopPropagation()}>
+            <h3>{t('posStatsTitle')}</h3>
+            <div className="pos-stats-periods">
+              {[
+                { key: 'day', label: t('posStatsPeriodDay') },
+                { key: 'week', label: t('posStatsPeriodWeek') },
+                { key: 'month', label: t('posStatsPeriodMonth') },
+                { key: 'year', label: t('posStatsPeriodYear') },
+              ].map((p) => (
+                <button
+                  key={p.key}
+                  type="button"
+                  className={`pos-pill ${statsPeriod === p.key ? 'active' : ''}`}
+                  disabled={statsLoading}
+                  onClick={() => loadStats(p.key, 0)}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            <div className="pos-stats-nav">
+              <button
+                type="button"
+                className="pos-btn pos-btn-secondary"
+                disabled={statsLoading}
+                onClick={() => loadStats(statsPeriod, statsOffset - 1)}
+              >
+                ←
+              </button>
+              <p className="lead" style={{ margin: 0, textAlign: 'center', flex: 1 }}>
+                {stats.from === stats.to ? stats.from : `${stats.from} → ${stats.to}`}
+              </p>
+              <button
+                type="button"
+                className="pos-btn pos-btn-secondary"
+                disabled={statsLoading || statsOffset >= 0}
+                onClick={() => loadStats(statsPeriod, Math.min(0, statsOffset + 1))}
+              >
+                →
+              </button>
+            </div>
             <div className="pos-totals" style={{ borderTop: 'none' }}>
               <div className="pos-total-row"><span>{t('posRevenue')}</span><span>{formatCents(stats.revenueCents)}</span></div>
               <div className="pos-total-row"><span>{t('posOrdersCount')}</span><span>{stats.ordersCount}</span></div>
@@ -891,6 +941,24 @@ function PosShell() {
               <div className="pos-total-row"><span>{t('posCash')}</span><span>{stats.payments.cash.count} · {formatCents(stats.payments.cash.amountCents)}</span></div>
               <div className="pos-total-row discount"><span>{t('posDiscounts')}</span><span>{formatCents(stats.discountsCents)}</span></div>
             </div>
+            {stats.breakdown?.length > 0 && (
+              <>
+                <p className="lead" style={{ marginTop: '1rem' }}>{t('posStatsBreakdown')}</p>
+                <div className="pos-stats-breakdown">
+                  {stats.breakdown
+                    .filter((row) => row.ordersCount > 0 || statsPeriod !== 'day')
+                    .map((row) => (
+                      <div key={row.key} className="pos-total-row">
+                        <span>{row.label}</span>
+                        <span>
+                          {formatCents(row.revenueCents)}
+                          <span className="pos-stats-orders"> · {row.ordersCount}</span>
+                        </span>
+                      </div>
+                    ))}
+                </div>
+              </>
+            )}
             {stats.topProducts?.length > 0 && (
               <>
                 <p className="lead" style={{ marginTop: '1rem' }}>{t('posTopProducts')}</p>

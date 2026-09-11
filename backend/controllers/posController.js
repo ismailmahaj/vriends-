@@ -671,30 +671,135 @@ const cancelOrder = async (req, res) => {
   }
 };
 
+const TZ = 'Europe/Brussels';
+
+function pad2(n) {
+  return String(n).padStart(2, '0');
+}
+
+function brusselsYmd(date = new Date()) {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: TZ,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+}
+
+function brusselsHour(date = new Date()) {
+  const hour = new Intl.DateTimeFormat('en-GB', {
+    timeZone: TZ,
+    hour: '2-digit',
+    hour12: false,
+  }).format(date);
+  return pad2(Number(hour === '24' ? 0 : hour));
+}
+
+function addDaysYmd(ymd, delta) {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d + delta));
+  return `${dt.getUTCFullYear()}-${pad2(dt.getUTCMonth() + 1)}-${pad2(dt.getUTCDate())}`;
+}
+
+function startOfWeekMonday(ymd) {
+  const [y, m, d] = ymd.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  const dow = dt.getUTCDay();
+  const offset = dow === 0 ? -6 : 1 - dow;
+  return addDaysYmd(ymd, offset);
+}
+
+function daysInMonth(year, month) {
+  return new Date(Date.UTC(year, month, 0)).getUTCDate();
+}
+
+function resolveStatsRange(period = 'day', offset = 0) {
+  const todayYmd = brusselsYmd(new Date());
+  const [ty, tm] = todayYmd.split('-').map(Number);
+  const p = String(period || 'day').toLowerCase();
+  const off = Number(offset) || 0;
+
+  if (p === 'week') {
+    const fromYmd = addDaysYmd(startOfWeekMonday(todayYmd), off * 7);
+    const toYmd = addDaysYmd(fromYmd, 6);
+    return { period: 'week', fromYmd, toYmd, bucket: 'day' };
+  }
+
+  if (p === 'month') {
+    let year = ty;
+    let month = tm + off;
+    while (month < 1) {
+      month += 12;
+      year -= 1;
+    }
+    while (month > 12) {
+      month -= 12;
+      year += 1;
+    }
+    const fromYmd = `${year}-${pad2(month)}-01`;
+    const toYmd = `${year}-${pad2(month)}-${pad2(daysInMonth(year, month))}`;
+    return { period: 'month', fromYmd, toYmd, bucket: 'day' };
+  }
+
+  if (p === 'year') {
+    const year = ty + off;
+    return {
+      period: 'year',
+      fromYmd: `${year}-01-01`,
+      toYmd: `${year}-12-31`,
+      bucket: 'month',
+    };
+  }
+
+  const dayYmd = addDaysYmd(todayYmd, off);
+  return { period: 'day', fromYmd: dayYmd, toYmd: dayYmd, bucket: 'hour' };
+}
+
+function orderPaidAt(order) {
+  return order.paidAt || order.createdAt;
+}
+
 const getStats = async (req, res) => {
   try {
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    const endOfToday = new Date();
-    endOfToday.setHours(23, 59, 59, 999);
+    const period = String(req.query.period || 'day').toLowerCase();
+    const offset = Number(req.query.offset || 0);
+    const range = resolveStatsRange(period, offset);
+
+    // Fenêtre UTC large : filtrage exact ensuite en fuseau Bruxelles
+    const looseFrom = new Date(`${range.fromYmd}T00:00:00.000Z`);
+    looseFrom.setUTCDate(looseFrom.getUTCDate() - 1);
+    const looseTo = new Date(`${range.toYmd}T23:59:59.999Z`);
+    looseTo.setUTCDate(looseTo.getUTCDate() + 1);
 
     const paid = await prisma.posOrder.findMany({
       where: {
         paymentStatus: 'paid',
-        createdAt: { gte: startOfToday, lte: endOfToday },
+        OR: [
+          { paidAt: { gte: looseFrom, lte: looseTo } },
+          { paidAt: null, createdAt: { gte: looseFrom, lte: looseTo } },
+        ],
       },
       include: { items: true },
     });
 
-    const caCents = paid.reduce((a, o) => a + o.totalCents, 0);
-    const discountsCents = paid.reduce((a, o) => a + o.discountCents, 0);
-    const cardOrders = paid.filter((o) => o.paymentMethod === 'CARD');
-    const cashOrders = paid.filter((o) => o.paymentMethod === 'CASH');
+    const inRange = paid.filter((o) => {
+      const ymd = brusselsYmd(new Date(orderPaidAt(o)));
+      return ymd >= range.fromYmd && ymd <= range.toYmd;
+    });
+
+    const caCents = inRange.reduce((a, o) => a + o.totalCents, 0);
+    const discountsCents = inRange.reduce((a, o) => a + o.discountCents, 0);
+    const cardOrders = inRange.filter((o) => o.paymentMethod === 'CARD');
+    const cashOrders = inRange.filter((o) => o.paymentMethod === 'CASH');
 
     const productMap = new Map();
-    for (const order of paid) {
+    for (const order of inRange) {
       for (const item of order.items) {
-        const prev = productMap.get(item.productNameSnapshot) || { name: item.productNameSnapshot, quantity: 0, revenueCents: 0 };
+        const prev = productMap.get(item.productNameSnapshot) || {
+          name: item.productNameSnapshot,
+          quantity: 0,
+          revenueCents: 0,
+        };
         prev.quantity += item.quantity;
         prev.revenueCents += item.subtotalCents;
         productMap.set(item.productNameSnapshot, prev);
@@ -704,20 +809,63 @@ const getStats = async (req, res) => {
       .sort((a, b) => b.quantity - a.quantity)
       .slice(0, 10);
 
-    const byHour = new Map();
-    for (const order of paid) {
-      const hour = String(new Date(order.createdAt).getHours()).padStart(2, '0');
-      const prev = byHour.get(hour) || { hour, revenueCents: 0, orders: 0 };
-      prev.revenueCents += order.totalCents;
-      prev.orders += 1;
-      byHour.set(hour, prev);
+    const buckets = new Map();
+    const ensureBucket = (key, label) => {
+      if (!buckets.has(key)) buckets.set(key, { key, label, revenueCents: 0, ordersCount: 0 });
+      return buckets.get(key);
+    };
+
+    if (range.bucket === 'hour') {
+      for (let h = 0; h < 24; h += 1) {
+        const key = pad2(h);
+        ensureBucket(key, `${key}h`);
+      }
+      for (const order of inRange) {
+        const hour = brusselsHour(new Date(orderPaidAt(order)));
+        const b = ensureBucket(hour, `${hour}h`);
+        b.revenueCents += order.totalCents;
+        b.ordersCount += 1;
+      }
+    } else if (range.bucket === 'month') {
+      const year = Number(range.fromYmd.slice(0, 4));
+      for (let m = 1; m <= 12; m += 1) {
+        const key = `${year}-${pad2(m)}`;
+        ensureBucket(key, key);
+      }
+      for (const order of inRange) {
+        const ymd = brusselsYmd(new Date(orderPaidAt(order)));
+        const key = ymd.slice(0, 7);
+        const b = ensureBucket(key, key);
+        b.revenueCents += order.totalCents;
+        b.ordersCount += 1;
+      }
+    } else {
+      let cursor = range.fromYmd;
+      while (true) {
+        ensureBucket(cursor, cursor);
+        if (cursor === range.toYmd) break;
+        cursor = addDaysYmd(cursor, 1);
+      }
+      for (const order of inRange) {
+        const key = brusselsYmd(new Date(orderPaidAt(order)));
+        const b = ensureBucket(key, key);
+        b.revenueCents += order.totalCents;
+        b.ordersCount += 1;
+      }
     }
 
+    const breakdown = [...buckets.values()].sort((a, b) => a.key.localeCompare(b.key));
+
     res.json({
-      date: startOfToday.toISOString().slice(0, 10),
-      ordersCount: paid.length,
+      period: range.period,
+      offset,
+      from: range.fromYmd,
+      to: range.toYmd,
+      date: range.fromYmd,
+      timezone: TZ,
+      ordersCount: inRange.length,
       revenueCents: caCents,
-      averageBasketCents: paid.length ? Math.round(caCents / paid.length) : 0,
+      averageBasketCents: inRange.length ? Math.round(caCents / inRange.length) : 0,
       discountsCents,
       payments: {
         card: {
@@ -730,7 +878,15 @@ const getStats = async (req, res) => {
         },
       },
       topProducts,
-      revenueByHour: [...byHour.values()].sort((a, b) => a.hour.localeCompare(b.hour)),
+      breakdown,
+      revenueByHour:
+        range.bucket === 'hour'
+          ? breakdown.map((b) => ({
+              hour: b.key,
+              revenueCents: b.revenueCents,
+              orders: b.ordersCount,
+            }))
+          : [],
     });
   } catch (error) {
     console.error(error);

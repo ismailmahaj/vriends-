@@ -60,7 +60,7 @@ export const cancelPosOrder = async (id) => {
   return data;
 };
 
-export const getPosStats = async () => {
-  const { data } = await api.get('/pos/stats');
+export const getPosStats = async ({ period = 'day', offset = 0 } = {}) => {
+  const { data } = await api.get('/pos/stats', { params: { period, offset } });
   return data;
 };
