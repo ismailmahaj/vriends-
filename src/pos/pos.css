@@ -900,7 +900,7 @@
     padding: 0 !important;
     background: #fff !important;
     color: #000 !important;
-    font-size: 15px !important;
+    font-size: 18px !important;
     font-weight: 700 !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
@@ -990,10 +990,10 @@
     margin: 0 !important;
     padding: 0 !important;
     font-family: "Courier New", Courier, "Liberation Mono", monospace !important;
-    font-size: 15px !important;
+    font-size: 18px !important;
     font-weight: 700 !important;
     font-style: normal !important;
-    line-height: 1.25 !important;
+    line-height: 1.22 !important;
     letter-spacing: 0 !important;
     white-space: pre !important;
     color: #000 !important;
@@ -1001,11 +1001,11 @@
     border: none !important;
     text-align: left !important;
     transform: none !important;
-    -webkit-text-stroke: 0.15px #000;
+    -webkit-text-stroke: 0.2px #000;
   }
 
   body.ticket-width-80 .pos-ticket-pre {
-    font-size: 17px !important;
+    font-size: 20px !important;
   }
 
   .pos-ticket-page-break {

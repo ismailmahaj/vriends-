@@ -3,9 +3,9 @@ import { useLanguage } from '../context/LanguageContext';
 
 const localeMap = { fr: 'fr-BE', nl: 'nl-BE', en: 'en-GB' };
 
-/** Largeur utile (police mono plus grande/grasse) : ~24 car. sur 58 mm. */
-const COLS_58 = 24;
-const COLS_80 = 32;
+/** Largeur utile (police mono très grande/grasse) : ~20 car. sur 58 mm. */
+const COLS_58 = 20;
+const COLS_80 = 28;
 
 function money(cents, locale) {
   return formatCents(cents ?? 0, locale);
