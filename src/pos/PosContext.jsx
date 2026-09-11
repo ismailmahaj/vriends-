@@ -126,9 +126,11 @@ function reducer(state, action) {
     case 'LOAD_HELD':
       return {
         ...state,
-        items: action.payload.items,
-        customerType: action.payload.customerType,
-        orderType: action.payload.orderType,
+        items: action.payload.items || [],
+        customerType: action.payload.customerType || CUSTOMER_TYPES.STANDARD,
+        orderType: action.payload.orderType || 'DINE_IN',
+        customerUser: action.payload.customerUser ?? null,
+        notes: action.payload.notes || '',
         selectedLineKey: null,
       };
     default:

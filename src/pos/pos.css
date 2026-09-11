@@ -598,11 +598,13 @@
 }
 
 .pos-held {
-  max-height: 120px;
+  max-height: 180px;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  margin-bottom: 0.5rem;
+  flex-shrink: 0;
 }
 
 .pos-held-item {
@@ -613,6 +615,12 @@
   text-align: left;
   font-size: 0.85rem;
   color: var(--pos-brown);
+  cursor: pointer;
+  min-height: 48px;
+}
+
+.pos-held-item:hover {
+  background: var(--pos-brown-soft);
 }
 
 .pos-modal-backdrop {

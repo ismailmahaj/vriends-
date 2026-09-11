@@ -6,6 +6,7 @@ import {
   getPosCategories,
   getPosSettings,
   getPosOrders,
+  getPosOrder,
   createPosOrder,
   togglePosFavorite,
   getPosStats,
@@ -216,6 +217,50 @@ function PosShell() {
     setPaymentOpen(true);
   };
 
+  const refreshHeldOrders = useCallback(async () => {
+    try {
+      const held = await getPosOrders({ status: 'held', limit: 20 });
+      setHeldOrders(Array.isArray(held) ? held : []);
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  const buildHoldPayload = useCallback(
+    () => ({
+      items: state.items.map((i) => ({
+        productId: i.productId,
+        quantity: i.quantity,
+        options: i.options,
+        lineNote: i.lineNote || null,
+      })),
+      customerType: state.customerType,
+      orderType: state.orderType,
+      customerId: state.customerUser?.id || null,
+      notes: state.notes || null,
+      hold: true,
+      idempotencyKey: makeIdempotencyKey(),
+    }),
+    [state.items, state.customerType, state.orderType, state.customerUser, state.notes]
+  );
+
+  const mapHeldToCart = (order) => ({
+    customerType: order.customerType,
+    orderType: order.orderType,
+    notes: order.notes || '',
+    customerUser: order.customer || null,
+    items: (order.items || []).map((it) => ({
+      key: `${it.productId}::${JSON.stringify(it.options || null)}`,
+      productId: it.productId,
+      name: it.productNameSnapshot,
+      unitPriceCents: it.unitPriceCents,
+      quantity: it.quantity,
+      options: it.options,
+      lineNote: it.lineNote || '',
+      available: true,
+    })),
+  });
+
   const handlePay = async () => {
     if (payingLock.current || busy) return;
     if (!state.items.length) return;
@@ -261,6 +306,7 @@ function PosShell() {
       dispatch({ type: 'CLEAR' });
       clearDraftStorage();
       showToast(result.paymentMessage || t('posPaymentAccepted'));
+      refreshHeldOrders();
 
       const autoPrint = String(state.settings?.autoPrint ?? state.settings?.pos_auto_print ?? 'false').toLowerCase() === 'true'
         || state.settings?.autoPrint === true;
@@ -287,24 +333,10 @@ function PosShell() {
     if (!state.items.length || busy) return;
     setBusy(true);
     try {
-      await createPosOrder({
-        items: state.items.map((i) => ({
-          productId: i.productId,
-          quantity: i.quantity,
-          options: i.options,
-          lineNote: i.lineNote || null,
-        })),
-        customerType: state.customerType,
-        orderType: state.orderType,
-        customerId: state.customerUser?.id || null,
-        notes: state.notes || null,
-        hold: true,
-        idempotencyKey: makeIdempotencyKey(),
-      });
+      await createPosOrder(buildHoldPayload());
       dispatch({ type: 'CLEAR' });
       clearDraftStorage();
-      const held = await getPosOrders({ status: 'held', limit: 20 });
-      setHeldOrders(held);
+      await refreshHeldOrders();
       showToast(t('posOrderHeld'));
     } catch (err) {
       showToast(err.response?.data?.error || t('error'));
@@ -313,31 +345,40 @@ function PosShell() {
     }
   };
 
-  const resumeHeld = (order) => {
-    if (state.items.length) {
-      const ok = window.confirm(t('posReplaceCartConfirm'));
-      if (!ok) return;
+  const resumeHeld = async (order) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      // Ne pas perdre la commande en cours : la mettre en attente automatiquement
+      if (state.items.length) {
+        await createPosOrder(buildHoldPayload());
+      }
+
+      const full = await getPosOrder(order.id);
+      if (!full?.items?.length) {
+        showToast(t('posHeldEmpty'));
+        await refreshHeldOrders();
+        return;
+      }
+
+      dispatch({ type: 'LOAD_HELD', payload: mapHeldToCart(full) });
+
+      // Retirer l'ancienne held pour pouvoir la re-sauver après modification
+      try {
+        await cancelPosOrder(order.id);
+      } catch (e) {
+        console.error(e);
+      }
+
+      await refreshHeldOrders();
+      showToast(`${t('posResumeHeld')} ${full.orderNumber}`);
+    } catch (err) {
+      console.error(err);
+      showToast(err.response?.data?.error || t('error'));
+      await refreshHeldOrders();
+    } finally {
+      setBusy(false);
     }
-    dispatch({
-      type: 'LOAD_HELD',
-      payload: {
-        customerType: order.customerType,
-        orderType: order.orderType,
-        items: order.items.map((it) => ({
-          key: `${it.productId}::${JSON.stringify(it.options || null)}`,
-          productId: it.productId,
-          name: it.productNameSnapshot,
-          unitPriceCents: it.unitPriceCents,
-          quantity: it.quantity,
-          options: it.options,
-          available: true,
-        })),
-      },
-    });
-    // Annuler l'ancienne held côté serveur pour éviter doublon à la revalidation
-    cancelPosOrder(order.id).catch(() => {});
-    setHeldOrders((prev) => prev.filter((h) => h.id !== order.id));
-    showToast(`${t('posResumeHeld')} ${order.orderNumber}`);
   };
 
   const cancelCurrent = () => {
