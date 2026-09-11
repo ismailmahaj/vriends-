@@ -114,12 +114,34 @@ export function normalizeOptionsSchema(raw) {
 }
 
 export function getSelectedIds(selection, groupId) {
-  if (!selection || typeof selection !== 'object') return [];
+  if (!selection || typeof selection !== 'object' || Array.isArray(selection)) return [];
   const raw = selection[groupId];
   if (raw == null) return [];
   if (Array.isArray(raw)) return raw.map(String).filter(Boolean);
   if (typeof raw === 'string' && raw) return [raw];
   return [];
+}
+
+/**
+ * Accepte soit une sélection { groupId: id|id[] }, soit un snapshot ligne
+ * [{ groupId, choiceId, ... }] (cas reprise commande en attente).
+ */
+export function coerceSelection(input) {
+  if (input == null) return {};
+  if (Array.isArray(input)) {
+    const sel = {};
+    for (const row of input) {
+      if (!row || typeof row !== 'object') continue;
+      const gid = String(row.groupId || '').trim();
+      const cid = String(row.choiceId || row.id || '').trim();
+      if (!gid || !cid) continue;
+      if (!Object.prototype.hasOwnProperty.call(sel, gid)) sel[gid] = [];
+      if (!sel[gid].includes(cid)) sel[gid].push(cid);
+    }
+    return sel;
+  }
+  if (typeof input === 'object') return input;
+  return {};
 }
 
 export function emptySelection(schema) {
@@ -138,9 +160,10 @@ export function emptySelection(schema) {
 
 export function validateSelection(schema, selection) {
   const groups = normalizeOptionsSchema(schema) || [];
+  const sel = coerceSelection(selection);
   const errors = [];
   for (const group of groups) {
-    const ids = getSelectedIds(selection, group.id);
+    const ids = getSelectedIds(sel, group.id);
     const validIds = new Set(group.choices.map((c) => c.id));
     const filtered = ids.filter((id) => validIds.has(id));
     if (filtered.length < group.min) {
@@ -162,9 +185,10 @@ export function validateSelection(schema, selection) {
 
 export function computeOptionsExtraEuros(schema, selection) {
   const groups = normalizeOptionsSchema(schema) || [];
+  const sel = coerceSelection(selection);
   let extra = 0;
   for (const group of groups) {
-    const ids = new Set(getSelectedIds(selection, group.id));
+    const ids = new Set(getSelectedIds(sel, group.id));
     for (const choice of group.choices) {
       if (ids.has(choice.id)) extra += choice.priceDelta;
     }

@@ -118,4 +118,30 @@ describe('optionsEngine', () => {
     assert.equal(schema[0].choices[1].priceDelta, 1.5);
     assert.equal(schema[0].choices[2].priceDelta, 0);
   });
+
+  it('accepte un snapshot ligne comme sélection (reprise held)', () => {
+    const {
+      coerceSelection,
+      validateSelection: validate,
+      computeOptionsExtraEuros: extra,
+    } = require('../lib/optionsEngine.cjs');
+    const schema = normalizeOptionsSchema([
+      {
+        name: 'Taille',
+        selection: 'single',
+        required: true,
+        choices: [
+          { id: 's', label: 'Small', priceDelta: 0 },
+          { id: 'l', label: 'Large', priceDelta: 2 },
+        ],
+      },
+    ]);
+    const snapshot = [
+      { groupId: schema[0].id, groupName: 'Taille', choiceId: 'l', label: 'Large', priceDelta: 2 },
+    ];
+    const sel = coerceSelection(snapshot);
+    assert.deepEqual(sel[schema[0].id], ['l']);
+    assert.equal(validate(schema, snapshot).ok, true);
+    assert.equal(extra(schema, snapshot), 2);
+  });
 });

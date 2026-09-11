@@ -13,6 +13,7 @@ const {
   validateSelection,
   computeUnitPriceEuros,
   buildOptionsSnapshot,
+  coerceSelection,
 } = require('../lib/optionsEngine.cjs');
 const { getPosOrdersAcceptingState, sanitizeLineNote, buildAddressSnapshot } = require('../lib/shopSettings');
 
@@ -161,7 +162,7 @@ async function loadOrder(id) {
   return serializeOrder(order);
 }
 
-async function resolveLineItems(rawItems) {
+async function resolveLineItems(rawItems, { allowUnavailable = false } = {}) {
   if (!Array.isArray(rawItems) || rawItems.length === 0) {
     return { error: 'Panier vide' };
   }
@@ -180,22 +181,22 @@ async function resolveLineItems(rawItems) {
     if (!product) {
       return { error: `Produit ${productId} introuvable` };
     }
-    if (!product.available) {
+    if (!product.available && !allowUnavailable) {
       return { error: `Produit « ${product.name} » épuisé` };
     }
 
     const schema = normalizeOptionsSchema(product.optionsSchema);
-    const selection = item.options || item.selection || null;
+    const selection = coerceSelection(item.options || item.selection || null);
     if (schema?.length) {
-      const check = validateSelection(schema, selection || {});
+      const check = validateSelection(schema, selection);
       if (!check.ok) {
         return { error: check.errors[0]?.message || 'Options invalides' };
       }
     }
 
-    const unitPriceEuros = computeUnitPriceEuros(product.price, schema, selection || {});
+    const unitPriceEuros = computeUnitPriceEuros(product.price, schema, selection);
     const unitPriceCents = eurosToCents(unitPriceEuros);
-    const snapshot = schema?.length ? buildOptionsSnapshot(schema, selection || {}) : null;
+    const snapshot = schema?.length ? buildOptionsSnapshot(schema, selection) : null;
     const lineNote = sanitizeLineNote(item.lineNote || item.line_note || item.note);
 
     lines.push({
@@ -380,7 +381,7 @@ const createOrder = async (req, res) => {
       return res.status(400).json({ error: 'Type de commande invalide' });
     }
 
-    const resolved = await resolveLineItems(items);
+    const resolved = await resolveLineItems(items, { allowUnavailable: !!hold });
     if (resolved.error) return res.status(400).json({ error: resolved.error });
 
     const settings = await getPosSettingsFromDb();

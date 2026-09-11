@@ -25,7 +25,7 @@ import PosTicket from './PosTicket';
 import { printPosTicket } from './printTicket';
 import ProductOptionsModal from '../components/ProductOptionsModal';
 import { searchCustomers, createCustomer } from '../services/customersService';
-import { formatOptionsLabel } from '../lib/optionsEngine';
+import { formatOptionsLabel, coerceSelection } from '../lib/optionsEngine';
 import './pos.css';
 
 const CATEGORY_EMOJI = {
@@ -249,16 +249,20 @@ function PosShell() {
     orderType: order.orderType,
     notes: order.notes || '',
     customerUser: order.customer || null,
-    items: (order.items || []).map((it) => ({
-      key: `${it.productId}::${JSON.stringify(it.options || null)}`,
-      productId: it.productId,
-      name: it.productNameSnapshot,
-      unitPriceCents: it.unitPriceCents,
-      quantity: it.quantity,
-      options: it.options,
-      lineNote: it.lineNote || '',
-      available: true,
-    })),
+    items: (order.items || []).map((it) => {
+      const options = coerceSelection(it.options);
+      const hasOptions = options && Object.keys(options).length > 0;
+      return {
+        key: `${it.productId}::${JSON.stringify(hasOptions ? options : null)}`,
+        productId: it.productId,
+        name: it.productNameSnapshot,
+        unitPriceCents: it.unitPriceCents,
+        quantity: it.quantity,
+        options: hasOptions ? options : null,
+        lineNote: it.lineNote || '',
+        available: true,
+      };
+    }),
   });
 
   const handlePay = async () => {
