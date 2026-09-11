@@ -4,6 +4,7 @@ const {
   eurosToCents,
   DEFAULT_POS_SETTINGS,
   CUSTOMER_TYPES,
+  getPayableTotalCents,
 } = require('../lib/pricingEngine.cjs');
 const { processPayment } = require('../services/paymentProvider');
 const { parseCategories, parseOptionsSchema } = require('../lib/productHelpers');
@@ -397,14 +398,25 @@ const createOrder = async (req, res) => {
     let cashReceived = null;
     let cashChange = null;
     let paidAt = null;
+    let totalCents = pricing.finalTotalCents;
+    let appliedRules = [...(pricing.appliedRules || [])];
 
     if (!hold && paymentMethod) {
       if (!VALID_PAYMENT.has(paymentMethod)) {
         return res.status(400).json({ error: 'Moyen de paiement invalide' });
       }
+      totalCents = getPayableTotalCents(pricing.finalTotalCents, paymentMethod);
+      const cashRoundingCents = totalCents - pricing.finalTotalCents;
+      if (paymentMethod === 'CASH' && cashRoundingCents > 0) {
+        appliedRules.push({
+          type: 'CASH_ROUNDING',
+          amountCents: cashRoundingCents,
+          label: 'Arrondi espèces',
+        });
+      }
       paymentResult = await processPayment({
         method: paymentMethod,
-        amountCents: pricing.finalTotalCents,
+        amountCents: totalCents,
         cashReceivedCents,
       });
       if (!paymentResult.success) {
@@ -434,12 +446,12 @@ const createOrder = async (req, res) => {
           lateSurchargeCents: pricing.lateSurchargeCents,
           discountCents: pricing.totalDiscountCents,
           surchargeCents: pricing.surchargeCents,
-          totalCents: pricing.finalTotalCents,
+          totalCents,
           paymentMethod: paidMethod,
           paymentStatus,
           cashReceivedCents: cashReceived,
           cashChangeCents: cashChange,
-          appliedRules: pricing.appliedRules,
+          appliedRules,
           idempotencyKey: idempotencyKey || null,
           notes: notesClean || null,
           addressSnapshot,
@@ -537,9 +549,23 @@ const payOrder = async (req, res) => {
       return res.status(400).json({ error: 'Moyen de paiement invalide' });
     }
 
+    const payableCents = getPayableTotalCents(order.totalCents, paymentMethod);
+    const cashRoundingCents = payableCents - order.totalCents;
+    let appliedRules = Array.isArray(order.appliedRules) ? [...order.appliedRules] : [];
+    if (paymentMethod === 'CASH' && cashRoundingCents > 0) {
+      appliedRules = [
+        ...appliedRules.filter((r) => r?.type !== 'CASH_ROUNDING'),
+        {
+          type: 'CASH_ROUNDING',
+          amountCents: cashRoundingCents,
+          label: 'Arrondi espèces',
+        },
+      ];
+    }
+
     const paymentResult = await processPayment({
       method: paymentMethod,
-      amountCents: order.totalCents,
+      amountCents: payableCents,
       cashReceivedCents,
     });
     if (!paymentResult.success) {
@@ -552,6 +578,8 @@ const payOrder = async (req, res) => {
         status: 'paid',
         paymentStatus: 'paid',
         paymentMethod,
+        totalCents: payableCents,
+        appliedRules,
         cashReceivedCents: paymentResult.cashReceivedCents,
         cashChangeCents: paymentResult.cashChangeCents,
         paidAt: new Date(),

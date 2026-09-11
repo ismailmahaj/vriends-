@@ -14,6 +14,7 @@ import {
 import {
   formatCents,
   calculateCashChange,
+  getPayableTotalCents,
   CUSTOMER_TYPES,
   eurosToCents,
 } from '../lib/pricingEngine';
@@ -221,7 +222,8 @@ function PosShell() {
 
     if (payMethod === 'CASH') {
       const receivedCents = Math.round(parseFloat(String(cashReceived).replace(',', '.')) * 100) || 0;
-      const change = calculateCashChange(pricing.finalTotalCents, receivedCents);
+      const payableCents = getPayableTotalCents(pricing.finalTotalCents, 'CASH');
+      const change = calculateCashChange(payableCents, receivedCents);
       if (!change.isSufficient) {
         showToast(t('posInsufficientCash'));
         return;
@@ -385,10 +387,16 @@ function PosShell() {
     return () => window.removeEventListener('keydown', onKey);
   });
 
+  const payableTotalCents = useMemo(
+    () => getPayableTotalCents(pricing.finalTotalCents, payMethod),
+    [pricing.finalTotalCents, payMethod]
+  );
+  const cashRoundingCents = Math.max(0, payableTotalCents - pricing.finalTotalCents);
+
   const cashChange = useMemo(() => {
     const receivedCents = Math.round(parseFloat(String(cashReceived).replace(',', '.')) * 100) || 0;
-    return calculateCashChange(pricing.finalTotalCents, receivedCents);
-  }, [cashReceived, pricing.finalTotalCents]);
+    return calculateCashChange(payableTotalCents, receivedCents);
+  }, [cashReceived, payableTotalCents]);
 
   const clockLocale = language === 'nl' ? 'nl-BE' : language === 'en' ? 'en-GB' : 'fr-BE';
   const clockLabel = state.clock.toLocaleTimeString(clockLocale, {
@@ -716,7 +724,12 @@ function PosShell() {
         <div className="pos-modal-backdrop" onClick={() => !busy && setPaymentOpen(false)}>
           <div className="pos-modal" onClick={(e) => e.stopPropagation()}>
             <h3>{t('posPayment')}</h3>
-            <p className="lead">{t('posTotal')} : {formatCents(pricing.finalTotalCents)}</p>
+            <p className="lead">{t('posTotal')} : {formatCents(payableTotalCents)}</p>
+            {payMethod === 'CASH' && cashRoundingCents > 0 && (
+              <p className="lead" style={{ marginTop: '-0.5rem', fontSize: '0.9rem' }}>
+                {t('posCashRounding')} : +{formatCents(cashRoundingCents)}
+              </p>
+            )}
             <div className="pos-pay-methods">
               {['CARD', 'CASH', 'OTHER'].map((m) => (
                 <button
@@ -747,7 +760,7 @@ function PosShell() {
                   ))}
                   <button
                     type="button"
-                    onClick={() => setCashReceived((pricing.finalTotalCents / 100).toFixed(2))}
+                    onClick={() => setCashReceived((payableTotalCents / 100).toFixed(2))}
                   >
                     {t('posExact')}
                   </button>

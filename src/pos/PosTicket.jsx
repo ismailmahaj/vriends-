@@ -162,6 +162,12 @@ const PosTicket = ({ order, settings }) => {
         {order.lateSurchargeCents > 0
           ? `${padRow(t('posSurcharge'), `+${money(order.lateSurchargeCents, locale)}`, cols)}\n`
           : ''}
+        {(() => {
+          const cashRound = (order.appliedRules || []).find((r) => r?.type === 'CASH_ROUNDING');
+          return cashRound?.amountCents > 0
+            ? `${padRow(t('posCashRounding'), `+${money(cashRound.amountCents, locale)}`, cols)}\n`
+            : '';
+        })()}
         {`${padRow(t('posTotal'), money(order.totalCents, locale), cols)}\n`}
         {order.paymentMethod === 'CASH' && order.cashReceivedCents != null
           ? `${padRow(t('posCash'), money(order.cashReceivedCents, locale), cols)}\n${padRow(

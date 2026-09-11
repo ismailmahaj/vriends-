@@ -5,6 +5,8 @@ const {
   eurosToCents,
   CUSTOMER_TYPES,
   DEFAULT_POS_SETTINGS,
+  roundCashUpToTenCents,
+  getPayableTotalCents,
 } = require('../lib/pricingEngine.cjs');
 
 function atTime(hours, minutes) {
@@ -142,5 +144,21 @@ describe('settings configurables', () => {
     });
     assert.equal(r.customerDiscountCents, 300);
     assert.equal(r.finalTotalCents, 1700);
+  });
+});
+
+describe('roundCashUpToTenCents / getPayableTotalCents', () => {
+  it('arrondit à la dizaine supérieure', () => {
+    assert.equal(roundCashUpToTenCents(934), 940);
+    assert.equal(roundCashUpToTenCents(931), 940);
+    assert.equal(roundCashUpToTenCents(930), 930);
+    assert.equal(roundCashUpToTenCents(1), 10);
+    assert.equal(roundCashUpToTenCents(0), 0);
+  });
+
+  it('n’arrondit qu’en espèces', () => {
+    assert.equal(getPayableTotalCents(934, 'CASH'), 940);
+    assert.equal(getPayableTotalCents(934, 'CARD'), 934);
+    assert.equal(getPayableTotalCents(934, 'OTHER'), 934);
   });
 });

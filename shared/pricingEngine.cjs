@@ -176,6 +176,25 @@ function calculateCashChange(totalCents, receivedCents) {
   };
 }
 
+/**
+ * Arrondi espèces : à la dizaine de centimes supérieure.
+ * Ex. 934 → 940 (9,34 € → 9,40 €). Déjà multiple de 10 → inchangé.
+ */
+function roundCashUpToTenCents(cents) {
+  const n = Math.max(0, Math.round(Number(cents) || 0));
+  if (n === 0) return 0;
+  return Math.ceil(n / 10) * 10;
+}
+
+/** Total à encaisser selon le moyen de paiement (arrondi cash uniquement). */
+function getPayableTotalCents(totalCents, paymentMethod) {
+  const base = Math.max(0, Math.round(Number(totalCents) || 0));
+  if (String(paymentMethod).toUpperCase() === 'CASH') {
+    return roundCashUpToTenCents(base);
+  }
+  return base;
+}
+
 const api = {
   CUSTOMER_TYPES,
   DEFAULT_POS_SETTINGS,
@@ -188,6 +207,8 @@ const api = {
   resolveCustomerDiscountPercent,
   calculateOrderPricing,
   calculateCashChange,
+  roundCashUpToTenCents,
+  getPayableTotalCents,
 };
 
 module.exports = api;
