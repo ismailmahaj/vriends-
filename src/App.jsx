@@ -35,14 +35,7 @@ const AppRoutes = () => {
         path="/register"
         element={isAuthenticated ? <Navigate to="/" replace /> : <RegisterPage />}
       />
-      <Route
-        path="/menu"
-        element={
-          <ProtectedRoute>
-            <MenuPage />
-          </ProtectedRoute>
-        }
-      />
+      <Route path="/menu" element={<MenuPage />} />
       <Route
         path="/cart"
         element={
